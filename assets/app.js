@@ -1,8 +1,8 @@
 /* ====== CONFIG: isi bagian ini ====== */
 const C={
   TMDB:"6d01e46a929577fd5e0df621f675d00e",
-  SB_URL:"ISI_SUPABASE_URL",        // contoh: https://xxxx.supabase.co
-  SB_KEY:"ISI_SUPABASE_ANON_KEY",   // anon public key
+  SB_URL:"https://xkcmieqdrgtrgwumoxfr.supabase.co",        // contoh: https://xxxx.supabase.co
+  SB_KEY:"sb_publishable_s5JVbGYq2VqS4iysK42-Bw_UZzozzyT",   // anon public key
   DB:"db/db.json",                  // atau link raw GitHub: https://raw.githubusercontent.com/USER/REPO/main/db/db.json
   WA:"https://wa.me/62XXXXXXXXXX",
   IG:"https://instagram.com/thntzy_",
