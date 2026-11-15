@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XY Cinema</title><link rel="stylesheet" href="assets/style.css"></head>
+<body hidden>
+<header id="hd"></header>
+<main>
+  <div id="main"><div id="hero"></div><div id="rows"></div></div>
+  <section id="res" hidden></section>
+</main>
+<footer id="ft"></footer>
+<dialog id="m"></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="assets/app.js"></script>
+<script>
+const IMG="https://image.tmdb.org/t/p/",M={};
+const api=(p,q="")=>fetch(`https://api.themoviedb.org/3${p}?api_key=${C.TMDB}&language=id-ID${q}`).then(r=>{if(!r.ok)throw 0;return r.json()});
+const SEC=[["Trending minggu ini","/trending/movie/week"],["Terpopuler","/movie/popular"],["Sedang tayang","/movie/now_playing","&region=ID"],["Rating tertinggi","/movie/top_rated"],["Segera tayang","/movie/upcoming","&region=ID"]];
+const card=m=>{M[m.id]=m;return `<button class="card" data-id="${m.id}">${m.poster_path?`<img src="${IMG}w342${m.poster_path}" alt="${esc(m.title)}" loading="lazy">`:'<div class="ph"></div>'}<b>${esc(m.title)}</b><span>★ ${m.vote_average?m.vote_average.toFixed(1):"-"}  ${(m.release_date||"").slice(0,4)}</span></button>`};
+async function load(){
+  try{
+    const res=await Promise.all(SEC.map(s=>api(s[1],s[2]||"")));
+    const h=res[0].results.find(m=>m.backdrop_path);
+    if(h){M[h.id]=h;
+      $("#hero").style.backgroundImage=`linear-gradient(to top,#15171d 4%,rgba(21,23,29,.3) 60%,rgba(21,23,29,.55)),url(${IMG}w1280${h.backdrop_path})`;
+      $("#hero").innerHTML=`<div class="hc"><h1>${esc(h.title)}</h1><p>${esc(h.overview)}</p><div class="bt"><button class="btn" data-id="${h.id}" data-play="1">Putar trailer</button><button class="btn g" data-id="${h.id}">Detail</button></div></div>`;
+    }
+    $("#rows").innerHTML=SEC.map((s,i)=>`<section><h2>${s[0]}</h2><div class="row">${res[i].results.map(card).join("")}</div></section>`).join("");
+  }catch{$("#rows").innerHTML='<p class="mu pad">Gagal memuat film. Periksa koneksi internet atau API key TMDB.</p>'}
+}
+let t;
+async function search(){
+  const q=$("#q").value.trim();
+  $("#res").hidden=!q;$("#main").hidden=!!q;
+  if(!q)return;
+  try{
+    const r=(await api("/search/movie","&query="+encodeURIComponent(q))).results;
+    $("#res").innerHTML=`<h2>Hasil untuk ${esc(q)}</h2>`+(r.length?`<div class="row grid">${r.map(card).join("")}</div>`:'<p class="mu pad">Tidak ada film yang cocok. Coba judul lain.</p>');
+  }catch{$("#res").innerHTML='<p class="mu pad">Pencarian gagal. Coba lagi.</p>'}
+}
+let U;
+async function openFilm(id,play){
+  let m=M[id];
+  if(!m){try{m=M[id]=await api("/movie/"+id)}catch{return}}
+  const d=$("#m"),bg=m.backdrop_path?IMG+"w780"+m.backdrop_path:"",row={user_id:U,movie_id:id,title:m.title,poster:m.poster_path||null};
+  let inPl=false;
+  d.innerHTML=`<button class="x" aria-label="Tutup">×</button><div class="vid" style="background-image:url(${bg})"></div><div class="mb"><h3>${esc(m.title)}</h3><div class="meta" id="mt"><span>${(m.release_date||"").slice(0,4)}</span><span>★ ${m.vote_average?m.vote_average.toFixed(1):"-"}</span></div><p>${esc(m.overview||"Sinopsis belum tersedia.")}</p><button class="btn g" id="pl" style="margin-top:14px" disabled>Playlist</button></div>`;
+  d.showModal();
+  const setPl=()=>{const b=$("#pl");if(b){b.textContent=inPl?"Hapus dari playlist":"Tambah ke playlist";b.disabled=false}};
+  const watch=k=>{
+    $(".vid").innerHTML=`<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(k)}?rel=0&autoplay=1" allow="autoplay;encrypted-media;fullscreen" allowfullscreen title="Trailer ${esc(m.title)}"></iframe>`;
+    sb.from("history").upsert({...row,watched_at:new Date().toISOString()},{onConflict:"user_id,movie_id"}).then(()=>{});
+  };
+  $("#pl").onclick=async()=>{
+    const b=$("#pl");b.disabled=true;
+    const q=sb.from("playlist"),r=inPl?await q.delete().eq("movie_id",id):await q.upsert(row,{onConflict:"user_id,movie_id"});
+    if(r.error){b.textContent="Gagal. Jalankan supabase.sql dulu.";return setTimeout(setPl,2000)}
+    inPl=!inPl;setPl();
+  };
+  try{
+    const [x,v,p]=await Promise.all([api("/movie/"+id),api(`/movie/${id}/videos`,"&include_video_language=id,en"),sb.from("playlist").select("movie_id").eq("movie_id",id).maybeSingle()]);
+    inPl=!!p.data;setPl();
+    const yt=v.results.filter(a=>a.site=="YouTube"),tr=yt.find(a=>a.type=="Trailer")||yt[0];
+    const meta=[(x.release_date||"").slice(0,4),"★ "+(x.vote_average?x.vote_average.toFixed(1):"-")];
+    if(x.runtime)meta.push(Math.floor(x.runtime/60)+"j "+x.runtime%60+"m");
+    if(x.genres?.length)meta.push(x.genres.map(g=>g.name).join(", "));
+    $("#mt").innerHTML=meta.map(s=>`<span>${esc(s)}</span>`).join("");
+    if(!tr)$(".mb").insertAdjacentHTML("beforeend",'<p class="mu" style="margin-top:12px">Trailer belum tersedia untuk film ini.</p>');
+    else if(play)watch(tr.key);
+    else{$(".vid").innerHTML='<button class="btn" id="pt">Putar trailer</button>';$("#pt").onclick=()=>watch(tr.key)}
+  }catch{setPl()}
+}
+document.addEventListener("click",e=>{const c=e.target.closest("[data-id]");if(c)openFilm(+c.dataset.id,c.dataset.play)});
+$("#m").addEventListener("click",e=>{if(e.target.id=="m"||e.target.classList.contains("x"))$("#m").close()});
+$("#m").addEventListener("close",()=>$("#m").innerHTML="");
+boot("home").then(x=>{if(!x)return;U=x.u.id;load();$("#q").oninput=()=>{clearTimeout(t);t=setTimeout(search,400)};const f=+new URLSearchParams(location.search).get("film");if(f)openFilm(f)});
+</script>
+</body></html>
