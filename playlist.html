@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Playlist - XY Cinema</title><link rel="stylesheet" href="assets/style.css"></head>
+<body hidden>
+<header id="hd"></header>
+<main class="wrap" style="max-width:1000px"><h1>Playlist</h1><p class="mu">Film yang kamu simpan.</p><div id="list" class="row grid"></div></main>
+<footer id="ft"></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="assets/app.js"></script>
+<script>
+boot("playlist").then(async x=>{
+  if(!x)return;
+  const L=$("#list"),r=await sb.from("playlist").select("*").order("added_at",{ascending:false});
+  if(r.error)return L.innerHTML='<p class="mu">Gagal memuat playlist. Pastikan supabase.sql sudah dijalankan.</p>';
+  let d=r.data;
+  const draw=()=>L.innerHTML=d.length?d.map(i=>`<div><a class="card" href="index.html?film=${i.movie_id}">${i.poster?`<img src="https://image.tmdb.org/t/p/w342${i.poster}" alt="${esc(i.title)}" loading="lazy">`:'<div class="ph"></div>'}<b>${esc(i.title)}</b></a><button class="rm" data-rm="${i.movie_id}">Hapus</button></div>`).join(""):'<p class="mu">Playlist masih kosong. Buka detail film, lalu pilih Tambah ke playlist.</p>';
+  draw();
+  L.onclick=async e=>{
+    const b=e.target.closest("[data-rm]");if(!b)return;
+    const id=+b.dataset.rm,q=await sb.from("playlist").delete().eq("movie_id",id);
+    if(!q.error){d=d.filter(i=>i.movie_id!=id);draw()}
+  };
+});
+</script>
+</body></html>
