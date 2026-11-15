@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Masuk - XY Cinema</title><link rel="stylesheet" href="assets/style.css"></head>
+<body hidden>
+<div id="auth">
+  <div class="ac">
+    <h1>XY <i>Cinema</i></h1>
+    <p class="mu">Masuk untuk melihat trailer dan film terpopuler.</p>
+    <div class="tabs"><button id="t-in" class="on">Masuk</button><button id="t-up">Daftar</button></div>
+    <form id="f">
+      <input id="idf" class="in" placeholder="Username, email, atau no HP" autocomplete="username" required>
+      <input id="un" class="up" placeholder="Username" autocomplete="username" hidden>
+      <input id="ph" class="up" type="tel" placeholder="No HP (contoh 08123456789)" autocomplete="tel" hidden>
+      <input id="em" class="up" type="email" placeholder="Email" autocomplete="email" hidden>
+      <input id="pw" type="password" placeholder="Kata sandi (min. 6 karakter)" minlength="6" autocomplete="current-password" required>
+      <input id="pw2" class="up" type="password" placeholder="Konfirmasi kata sandi" autocomplete="new-password" hidden>
+      <button class="btn w" id="go">Masuk</button>
+    </form>
+    <p class="or">atau</p>
+    <button class="btn g w" id="gg">Lanjut dengan Google</button>
+    <p id="msg" role="status"></p>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="assets/app.js"></script>
+<script>
+let mode="in";
+const SETUP="Isi SB_URL dan SB_KEY di assets/app.js terlebih dulu.",home=new URL("index.html",location.href).href;
+const msg=t=>$("#msg").textContent=t;
+const ERR={"Invalid login credentials":"Username, email, no HP, atau kata sandi salah.","User already registered":"Email sudah terdaftar. Silakan masuk.","Email not confirmed":"Email belum dikonfirmasi. Cek kotak masuk emailmu."};
+const fail=e=>msg(ERR[e.message]||e.message);
+function setMode(m){
+  mode=m;
+  $("#t-in").classList.toggle("on",m=="in");$("#t-up").classList.toggle("on",m=="up");
+  $("#go").textContent=m=="in"?"Masuk":"Daftar";
+  document.querySelectorAll(".up").forEach(e=>{e.hidden=m=="in";e.required=m=="up"});
+  document.querySelectorAll(".in").forEach(e=>{e.hidden=m=="up";e.required=m=="in"});
+  $("#pw").autocomplete=m=="in"?"current-password":"new-password";
+  msg("");
+}
+$("#t-in").onclick=()=>setMode("in");$("#t-up").onclick=()=>setMode("up");
+$("#f").onsubmit=async e=>{
+  e.preventDefault();msg("");
+  if(!sb)return msg(SETUP);
+  const password=$("#pw").value;
+  $("#go").disabled=true;
+  try{
+    if(mode=="in"){
+      const v=$("#idf").value.trim();let email=v;
+      if(!v.includes("@")){
+        const k=/^\+?[\d\s-]{8,}$/.test(v)?normPhone(v):v.toLowerCase();
+        const r=await sb.rpc("login_email",{idf:k});
+        if(!r.data)return msg("Akun tidak ditemukan.");
+        email=r.data;
+      }
+      const r=await sb.auth.signInWithPassword({email,password});
+      return r.error?fail(r.error):go("index.html");
+    }
+    const un=$("#un").value.trim().toLowerCase(),ph=normPhone($("#ph").value),email=$("#em").value.trim();
+    if(!/^[a-z0-9_.]{3,20}$/.test(un))return msg("Username 3-20 karakter: huruf, angka, titik, atau garis bawah.");
+    if(ph.length<9||ph.length>15)return msg("Nomor HP tidak valid.");
+    if(password!==$("#pw2").value)return msg("Konfirmasi kata sandi tidak sama.");
+    const a=await sb.rpc("is_available",{u:un,p:ph});
+    if(a.error)return fail(a.error);
+    if(a.data===false)return msg("Username atau nomor HP sudah terdaftar.");
+    const r=await sb.auth.signUp({email,password,options:{data:{username:un,phone:ph},emailRedirectTo:home}});
+    if(r.error)return fail(r.error);
+    r.data.session?go("index.html"):msg("Cek emailmu untuk konfirmasi, lalu masuk.");
+  }finally{$("#go").disabled=false}
+};
+$("#gg").onclick=async()=>{
+  if(!sb)return msg(SETUP);
+  const r=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:home}});
+  if(r.error)fail(r.error);
+};
+boot("login").then(()=>{if(location.search.includes("b=1"))msg("Akun ini diblokir. Hubungi admin.");else if(!sb)msg(SETUP)});
+</script>
+</body></html>
