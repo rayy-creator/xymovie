@@ -34,7 +34,7 @@ async function boot(page){
   let pf=null;try{pf=(await sb.from("profiles").select("username,phone,avatar").maybeSingle()).data}catch{}
   const seen=ls.get(),nw=db.notifications.filter(n=>!seen.includes(n.id)).length;
   const un=pf?.username||u.email.split("@")[0];
-  $("#hd").innerHTML=`<a class="logo" href="index.html">XY <i>Cinema</i></a><span class="sp"></span>${page=="home"?'<input id="q" type="search" placeholder="Cari film" aria-label="Cari film">':""}<a class="ib${page=="notif"?" on":""}" href="notifikasi.html" aria-label="Notifikasi">${ic("bell")}${nw?`<span class="bdg">${nw}</span>`:""}</a><a class="hav" href="profil.html" aria-label="Profil" style="${ppCss(un,pf?.avatar)}">${pf?.avatar?"":esc(un[0].toUpperCase())}</a>`;
+  $("#hd").innerHTML=`<a class="logo" href="index.html">XY <i>Movie</i></a><span class="sp"></span>${page=="home"?'<input id="q" type="search" placeholder="Cari film" aria-label="Cari film">':""}<a class="ib${page=="notif"?" on":""}" href="notifikasi.html" aria-label="Notifikasi">${ic("bell")}${nw?`<span class="bdg">${nw}</span>`:""}</a><a class="hav" href="profil.html" aria-label="Profil" style="${ppCss(un,pf?.avatar)}">${pf?.avatar?"":esc(un[0].toUpperCase())}</a>`;
   document.body.insertAdjacentHTML("beforeend",`<nav aria-label="Navigasi utama">${NAV.map(n=>`<a href="${n[0]}" aria-label="${n[3]}"${n[1]==page?' class="on" aria-current="page"':""}>${ic(n[2])}<span>${n[3]}</span></a>`).join("")}</nav>`);
   $("#ft").innerHTML="<b>XY OFFICIAL</b> by thntzy_<br>Data film dari TMDB. Produk ini memakai TMDB API tetapi tidak didukung atau disertifikasi oleh TMDB.";
   document.querySelectorAll("[data-k]").forEach(a=>a.href=C[a.dataset.k]);
