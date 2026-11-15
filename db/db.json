@@ -1,10 +1,37 @@
 {
   "accounts": [
-    { "email": "emailadmin@gmail.com", "name": "thntzy_", "role": "admin" },
-    { "email": "contoh-member@gmail.com", "name": "Member Contoh", "role": "member", "banned": false }
+    {
+      "email": "emailadmin@gmail.com",
+      "name": "thntzy_",
+      "role": "admin"
+    },
+    {
+      "email": "contoh-member@gmail.com",
+      "name": "Member Contoh",
+      "role": "member",
+      "banned": false
+    },
+    {
+      "email": "rayyimut098@gmail.com",
+      "name": "RAYY",
+      "role": "admin",
+      "banned": false
+    }
   ],
   "notifications": [
-    { "id": "n1", "title": "Selamat datang di XYMovie", "body": "Nonton trailer dan cek film terpopuler di sini. Kabar fitur baru akan muncul di halaman ini.", "date": "2026-11-15", "type": "info" },
-    { "id": "n2", "title": "Saluran WhatsApp resmi", "body": "Ikuti saluran WhatsApp kami untuk update terbaru. Link ada di halaman Info Dev.", "date": "2026-11-15", "type": "update" }
+    {
+      "id": "n1",
+      "title": "Selamat datang di XYMovie",
+      "body": "Nonton trailer dan cek film terpopuler di sini. Kabar fitur baru akan muncul di halaman ini.",
+      "date": "2026-11-15",
+      "type": "info"
+    },
+    {
+      "id": "n2",
+      "title": "Saluran WhatsApp resmi",
+      "body": "Ikuti saluran WhatsApp kami untuk update terbaru. Link ada di halaman Info Dev.",
+      "date": "2026-11-15",
+      "type": "update"
+    }
   ]
 }
