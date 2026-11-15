@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profil - XY Cinema</title><link rel="stylesheet" href="assets/style.css"></head>
+<body hidden>
+<header id="hd"></header>
+<main class="wrap"><div id="pv"></div></main>
+<footer id="ft"></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="assets/app.js"></script>
+<script>
+boot("profil").then(async x=>{
+  if(!x)return;
+  const p=x.pf||{},un=p.username||x.u.email.split("@")[0],em=x.u.email;
+  const bn=(await sb.from("profiles").select("banner").maybeSingle()).data?.banner;
+  $("#pv").innerHTML=profView(un,em,p.phone,x.acc.role=="admin"?"Admin":"Member",p.avatar,bn);
+  document.addEventListener("click",async e=>{
+    const b=e.target.closest("[data-eye],[data-out]");if(!b)return;
+    if("eye" in b.dataset)eye(b,em);else{await sb.auth.signOut();go("login.html")}
+  });
+  document.addEventListener("change",async e=>{
+    const f=e.target.files?.[0],k=e.target.dataset.img;
+    if(!f||!k||!f.type.startsWith("image/"))return;
+    const r=await sb.from("profiles").update({[k=="pp"?"avatar":"banner"]:await shrink(f,k=="pp"?256:900,k=="pp"?256:300)}).eq("id",x.u.id);
+    if(r.error)$("#pm").textContent="Gagal menyimpan foto. Jalankan supabase-profil.sql dulu.";else location.reload();
+  });
+});
+</script>
+</body></html>
