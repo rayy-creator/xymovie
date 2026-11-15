@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Riwayat - XY Cinema</title><link rel="stylesheet" href="assets/style.css"></head>
+<body hidden>
+<header id="hd"></header>
+<main class="wrap" style="max-width:1000px"><h1>Riwayat nonton</h1><p class="mu">Trailer yang sudah kamu putar.</p><button class="rm" id="clr" hidden>Hapus semua riwayat</button><div id="list" class="row grid"></div></main>
+<footer id="ft"></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="assets/app.js"></script>
+<script>
+boot("riwayat").then(async x=>{
+  if(!x)return;
+  const L=$("#list"),r=await sb.from("history").select("*").order("watched_at",{ascending:false}).limit(100);
+  if(r.error)return L.innerHTML='<p class="mu">Gagal memuat riwayat. Pastikan supabase.sql sudah dijalankan.</p>';
+  const fmt=t=>new Date(t).toLocaleString("id-ID",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const draw=d=>{
+    $("#clr").hidden=!d.length;
+    L.innerHTML=d.length?d.map(i=>`<a class="card" href="index.html?film=${i.movie_id}">${i.poster?`<img src="https://image.tmdb.org/t/p/w342${i.poster}" alt="${esc(i.title)}" loading="lazy">`:'<div class="ph"></div>'}<b>${esc(i.title)}</b><span>${fmt(i.watched_at)}</span></a>`).join(""):'<p class="mu">Belum ada riwayat. Putar trailer film untuk mencatatnya di sini.</p>';
+  };
+  draw(r.data);
+  $("#clr").onclick=async()=>{if(!(await sb.from("history").delete().eq("user_id",x.u.id)).error)draw([])};
+});
+</script>
+</body></html>
