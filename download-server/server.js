@@ -129,7 +129,7 @@ function runCommand(command, args, timeout = 600000) {
     });
   });
 }
-async function downloadOriginal(url) {
+async function saveYtDlpFile(url, args, label) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "xydown-"));
   const template = path.join(dir, "%(title).80B-%(id)s.%(ext)s");
   try {
@@ -137,8 +137,7 @@ async function downloadOriginal(url) {
       "--no-warnings", "--no-playlist", "--no-part",
       "--js-runtimes", "node",
       "--socket-timeout", "30", "--retries", "3",
-      "-f", "bv*+ba/b",
-      "--merge-output-format", "mp4",
+      ...args,
       "--print", "after_move:filepath",
       "-o", template, url
     ]);
@@ -147,7 +146,7 @@ async function downloadOriginal(url) {
     if (!path.isAbsolute(file) || !fs.existsSync(file)) {
       const candidates = fs.readdirSync(dir).map(name => path.join(dir, name))
         .filter(name => fs.statSync(name).isFile());
-      if (!candidates.length) throw new Error("yt-dlp selesai tetapi file hasil unduhan tidak ditemukan.");
+      if (!candidates.length) throw new Error("File " + label + " tidak ditemukan setelah diproses.");
       file = candidates.sort((a,b) => fs.statSync(b).size - fs.statSync(a).size)[0];
     }
     const id = crypto.randomBytes(18).toString("hex");
@@ -158,20 +157,46 @@ async function downloadOriginal(url) {
       if (saved) fs.rm(saved.dir, { recursive: true, force: true }, () => {});
     }, 60 * 60 * 1000);
     cleanup.unref?.();
-    const ext = path.extname(file).slice(1).toLowerCase() || "mp4";
-    return {
-      title: path.basename(file, path.extname(file)),
-      caption: "",
-      thumbnail: null,
-      media: [{
-        id, title: path.basename(file), caption: "", thumbnail: null, type: "video",
-        formats: [{ url: "/file?id=" + id, ext, height: null }]
-      }]
-    };
+    return { id, file, ext: path.extname(file).slice(1).toLowerCase() || "mp4" };
   } catch (error) {
     fs.rm(dir, { recursive: true, force: true }, () => {});
     throw error;
   }
+}
+async function downloadOriginal(url) {
+  const video = await saveYtDlpFile(url, [
+    "-f", "bv*+ba/b",
+    "--merge-output-format", "mp4"
+  ], "video");
+  const formats = [{
+    url: "/file?id=" + video.id, ext: video.ext, height: null, label: "Video"
+  }];
+  try {
+    const audio = await saveYtDlpFile(url, [
+      "-f", "ba/b",
+      "-x", "--audio-format", "mp3", "--audio-quality", "0"
+    ], "MP3");
+    formats.push({
+      url: "/file?id=" + audio.id, ext: "mp3", height: null, label: "MP3"
+    });
+  } catch (error) {
+    console.error("[XYDOWN] Konversi MP3 gagal:", error.message);
+    formats.push({
+      unavailable: true, ext: "mp3", label: "MP3",
+      message: /ffmpeg|postprocess/i.test(error.message)
+        ? "MP3 membutuhkan FFmpeg. Pasang dengan: pkg install ffmpeg"
+        : "Gagal menyiapkan MP3: " + error.message.slice(0, 180)
+    });
+  }
+  return {
+    title: path.basename(video.file, path.extname(video.file)),
+    caption: "",
+    thumbnail: null,
+    media: [{
+      id: video.id, title: path.basename(video.file), caption: "",
+      thumbnail: null, type: "video", formats
+    }]
+  };
 }
 function runYtDlp(url) {
   return new Promise((resolve, reject) => {
@@ -241,7 +266,7 @@ http.createServer(async (req, res) => {
     const saved = readyFiles.get(id);
     if (!saved || !fs.existsSync(saved.file)) return send(res, 404, { success: false, message: "File tidak tersedia atau sudah kedaluwarsa. Proses ulang tautannya." });
     const ext = path.extname(saved.file).toLowerCase();
-    const mime = ext === ".webm" ? "video/webm" : ext === ".mkv" ? "video/x-matroska" : "video/mp4";
+    const mime = ext === ".mp3" ? "audio/mpeg" : ext === ".webm" ? "video/webm" : ext === ".mkv" ? "video/x-matroska" : "video/mp4";
     res.writeHead(200, {
       "content-type": mime,
       "content-length": fs.statSync(saved.file).size,
