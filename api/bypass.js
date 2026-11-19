@@ -34,7 +34,7 @@ async function validateTarget(value) {
     if (isPrivateAddress(host)) throw new Error("Alamat IP privat tidak diizinkan.");
   } else {
     let records;
-    try { records = await dns.lookup(host, { all: true, verbatim: true }); }
+    try { records = await Promise.race([dns.lookup(host, { all: true, verbatim: true }), new Promise((_, reject) => setTimeout(() => reject(new Error("DNS timeout")), 2500))]); }
     catch { throw new Error("Domain tidak dapat ditemukan."); }
     if (!records.length || records.some(r => isPrivateAddress(r.address))) {
       throw new Error("Host mengarah ke alamat jaringan privat.");
@@ -70,7 +70,7 @@ async function postForm(form, referer) {
   if(form.method==="get") {
     const u=await validateTarget(form.action);
     for(const [k,v] of form.fields) u.searchParams.append(k,v);
-    const r=await fetch(u,{redirect:"manual",headers:{"user-agent":"Mozilla/5.0 Chrome/124 Safari/537.36","referer"},signal:AbortSignal.timeout(10000)});
+    const r=await fetch(u,{redirect:"manual",headers:{"user-agent":"Mozilla/5.0 Chrome/124 Safari/537.36","referer"},signal:AbortSignal.timeout(5000)});
     const loc=r.headers.get("location");
     return loc?new URL(loc,u).toString():null;
   }
@@ -94,7 +94,7 @@ async function resolve(url) {
     const response = await fetch(u, {
       method: "GET",
       redirect: "manual",
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(6500),
       headers: {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
