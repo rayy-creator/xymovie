@@ -1,25 +1,30 @@
 # XYDOWN
+
 Minimalist social media media downloader for Instagram, TikTok and YouTube.
 
-## Features
-- Public-content link downloader UI for Instagram photos/videos/Reels/accessible public Stories, TikTok videos/photo slideshows and YouTube media where supported by the provider.
-- No social-media login, password, cookies or user account credentials are requested.
-- Optional local browser profile. It is not authentication and is not required to download.
-- Donation links for Saweria and Sociabuzz (replace generic links in `assets/app.js` with your own).
-- Static frontend in `index.html`, `assets/style.css`, `assets/app.js`; server adapter in `api/download.js`.
+## Architecture
+- Static frontend: `index.html`, `assets/style.css`, `assets/app.js`.
+- Download engine: Node.js + yt-dlp + FFmpeg running on the owner's Android phone through Termux.
+- Public connection: Cloudflare Tunnel.
+- No Cobalt API, no Supabase, and no social-media account login.
 
-## Free API setup
-This project uses the open-source Cobalt-compatible API protocol. The upstream Cobalt project does not provide a public hosted API for unrestricted third-party use; host your own compatible instance or use an instance whose owner explicitly permits your use.
-1. Deploy a Cobalt API instance on a service that supports its runtime requirements (Node.js + FFmpeg; see https://github.com/imputnet/cobalt).
-2. In Vercel Project Settings → Environment Variables, set:
-   - `COBALT_API_URL` = base API endpoint of your permitted instance (usually ends in `/`)
-   - `COBALT_API_KEY` = optional API key, only if your instance requires one
-3. Redeploy the Vercel project.
+## Termux server
+1. Install Node.js, Python, yt-dlp, FFmpeg, Express and CORS in Termux.
+2. Run `node server.js` on port 3000.
+3. In another Termux session, run `cloudflared tunnel --url http://localhost:3000`.
+4. Update the API base URL in `assets/app.js` to the current `https://<random>.trycloudflare.com` address, then redeploy the website.
 
-The API adapter does not scrape private accounts or bypass access controls. Private/age-restricted/login-gated Stories and posts may fail. Provider support and free-tier limits can change.
+The current frontend is configured for the owner's current Quick Tunnel URL. Cloudflare Quick Tunnel hostnames are temporary and change when the tunnel is restarted; update the URL in `assets/app.js` after generating a new one. Quick Tunnels are intended for testing/development and have no uptime guarantee.
 
-## Deployment
-Deploy this repository to Vercel. No npm build step is required for the static frontend and serverless function.
+## Features and limitations
+- Public Instagram, TikTok and YouTube links where yt-dlp supports access.
+- No social-media username, password, cookies or account login are requested.
+- Private, login-gated, age-restricted or otherwise inaccessible content is not supported.
+- Media URLs returned by platforms may expire; request the link again if a download URL stops working.
+- The phone, Node.js server and Cloudflare Tunnel must remain online for the downloader API to work.
 
-## Important
-Only download content you own or have permission to save. Respect platform terms, copyright and creators' rights. This project is not affiliated with Instagram, TikTok, YouTube or Cobalt.
+## Donations
+Replace the generic Saweria and Sociabuzz links in `assets/app.js` with the project's actual donation URLs.
+
+## Responsible use
+Only download content you own or have permission to save. Respect platform terms, copyright and creators' rights.
