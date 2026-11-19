@@ -44,6 +44,9 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_GET(self):
+        return self._send(200, {"success": True, "service": "XYBYPASS API", "status": "online", "method": "POST"})
+
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Allow", "POST, OPTIONS")
