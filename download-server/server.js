@@ -132,15 +132,41 @@ function runCommand(command, args, timeout = 600000) {
 async function saveYtDlpFile(url, args, label) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "xydown-"));
   const template = path.join(dir, "%(title).80B-%(id)s.%(ext)s");
+  const baseArgs = [
+    "--no-warnings", "--no-playlist", "--no-part",
+    "--js-runtimes", "node",
+    "--socket-timeout", "30", "--retries", "3"
+  ];
+  const attempts = [args];
+  // Format IDs/combination differ between YouTube videos and Shorts.
+  // If the preferred combination is unavailable, let yt-dlp choose a real
+  // compatible stream instead of returning a false "format unavailable".
+  const formatIndex = args.indexOf("-f");
+  if (formatIndex !== -1) {
+    const fallback = args.slice();
+    fallback[formatIndex + 1] = label === "MP3" ? "bestaudio/best" : "best";
+    const mergeIndex = fallback.indexOf("--merge-output-format");
+    if (mergeIndex !== -1) fallback.splice(mergeIndex, 2);
+    attempts.push(fallback);
+  }
   try {
-    const printed = await runCommand("yt-dlp", [
-      "--no-warnings", "--no-playlist", "--no-part",
-      "--js-runtimes", "node",
-      "--socket-timeout", "30", "--retries", "3",
-      ...args,
-      "--print", "after_move:filepath",
-      "-o", template, url
-    ]);
+    let printed = "";
+    let lastError;
+    for (const selectedArgs of attempts) {
+      try {
+        printed = await runCommand("yt-dlp", [
+          ...baseArgs, ...selectedArgs,
+          "--print", "after_move:filepath",
+          "-o", template, url
+        ]);
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!/requested format is not available|format is not available|no video formats found/i.test(error.message)) throw error;
+      }
+    }
+    if (lastError) throw lastError;
     const lines = printed.split(/\\r?\\n/).filter(Boolean);
     let file = lines.length ? lines[lines.length - 1] : "";
     if (!path.isAbsolute(file) || !fs.existsSync(file)) {
