@@ -27,8 +27,18 @@ const CLUTCH_KEY = process.env.CLUTCH_API_KEY || "alipaiapikeybaru";
 
 async function clutchGet(path, url, extra = "") {
   const endpoint = `${CLUTCH_BASE}/download/${path}?apikey=${encodeURIComponent(CLUTCH_KEY)}&url=${encodeURIComponent(url)}${extra}`;
-  const response = await fetch(endpoint, { signal: AbortSignal.timeout(45000), headers: { "user-agent": "Mozilla/5.0" } });
-  const json = await response.json();
+  const response = await fetch(endpoint, {
+    signal: AbortSignal.timeout(45000),
+    headers: { "user-agent": "Mozilla/5.0", "accept": "application/json" }
+  });
+  const raw = await response.text();
+  let json;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    const preview = raw.replace(/\\s+/g, " ").slice(0, 180);
+    throw new Error(`Clutch /download/${path} membalas non-JSON (HTTP ${response.status}, ${response.headers.get("content-type") || "unknown"}): ${preview}`);
+  }
   if (!response.ok) throw new Error(json.error || `Clutch API HTTP ${response.status}`);
   return json;
 }
@@ -55,9 +65,11 @@ async function downloadWithApis(platform, url) {
       }
     } catch (e) { console.error("[XYDOWN] Clutch TikTok:", e.message); }
 
-    const response = await fetch("https://www.tikwm.com/api/?url=" + encodeURIComponent(url) + "&count=12&cursor=0&web=1&hd=1", {
+    const tikwmUrl = new URL("https://www.tikwm.com/api/");
+    tikwmUrl.search = new URLSearchParams({ url, count: "12", cursor: "0", web: "1", hd: "1" }).toString();
+    const response = await fetch(tikwmUrl, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8", "user-agent": "Mozilla/5.0" },
+      headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
       body: "",
       signal: AbortSignal.timeout(30000)
     });
