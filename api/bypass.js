@@ -43,6 +43,50 @@ async function validateTarget(value) {
   return u;
 }
 
+
+function decodeEntities(s) {
+  return String(s || "").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#39;|&#x27;/g,"'").replace(/&lt;/g,"<").replace(/&gt;/g,">");
+}
+function parseFirstForm(html, base) {
+  const forms = [...html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)];
+  for (const m of forms) {
+    const attrs=m[1], body=m[2];
+    const action=(attrs.match(/\baction\s*=\s*["']([^"']*)["']/i)||[])[1]||base;
+    const method=((attrs.match(/\bmethod\s*=\s*["']([^"']*)["']/i)||[])[1]||"get").toLowerCase();
+    const fields=new URLSearchParams();
+    for(const el of body.matchAll(/<input\b([^>]*)>/gi)){
+      const a=el[1], name=(a.match(/\bname\s*=\s*["']([^"']+)["']/i)||[])[1];
+      if(!name) continue;
+      const type=((a.match(/\btype\s*=\s*["']([^"']+)["']/i)||[])[1]||"text").toLowerCase();
+      if(["submit","button","file","image"].includes(type)) continue;
+      const value=(a.match(/\bvalue\s*=\s*["']([^"']*)["']/i)||[])[1]||"";
+      fields.append(name,decodeEntities(value));
+    }
+    if([...fields.keys()].length) return {action:new URL(decodeEntities(action),base).toString(),method,fields};
+  }
+  return null;
+}
+async function postForm(form, referer) {
+  if(form.method==="get") {
+    const u=await validateTarget(form.action);
+    for(const [k,v] of form.fields) u.searchParams.append(k,v);
+    const r=await fetch(u,{redirect:"manual",headers:{"user-agent":"Mozilla/5.0 Chrome/124 Safari/537.36","referer"},signal:AbortSignal.timeout(10000)});
+    const loc=r.headers.get("location");
+    return loc?new URL(loc,u).toString():null;
+  }
+  const target=await validateTarget(form.action);
+  const r=await fetch(target,{method:"POST",redirect:"manual",headers:{"user-agent":"Mozilla/5.0 Chrome/124 Safari/537.36","accept":"application/json, text/plain, */*","referer","origin":new URL(referer).origin,"content-type":"application/x-www-form-urlencoded; charset=UTF-8","x-requested-with":"XMLHttpRequest"},body:form.fields.toString(),signal:AbortSignal.timeout(10000)});
+  const raw=(await r.text()).slice(0,120000);
+  try {
+    const d=JSON.parse(raw), v=d.url||d.destination||d.link||d.data?.url||d.redirect;
+    if(typeof v==="string" && /^https?:\/\//i.test(v)) return v;
+  } catch {}
+  const loc=r.headers.get("location");
+  if(loc) return new URL(loc,target).toString();
+  const m=raw.match(/https?:\/\/[^"'\s<>]+/i);
+  return m?decodeEntities(m[0]):null;
+}
+
 async function resolve(url) {
   let current = url;
   for (let i = 0; i < 12; i++) {
@@ -69,8 +113,20 @@ async function resolve(url) {
       const script = html.match(/(?:window\.)?location(?:\.href)?\s*=\s*["'](https?:\/\/[^"']+)["']/i);
       const target = meta?.[1] || script?.[1];
       if (target) {
-        current = new URL(target.replace(/&amp;/g, "&"), u).toString();
+        current = new URL(decodeEntities(target), u).toString();
         continue;
+      }
+      const form=parseFirstForm(html,u);
+      if(form) {
+        const submitted=await postForm(form,u.toString());
+        if(submitted) { current=new URL(submitted,u).toString(); continue; }
+      }
+      const token=html.match(/(?:url|target|redirect|destination)=([^&"'\s<>]+)/i);
+      if(token) {
+        try {
+          const value=decodeURIComponent(token[1]);
+          if(/^https?:\/\//i.test(value)) return value;
+        } catch {}
       }
     }
     if (response.ok && current !== url) return current;
