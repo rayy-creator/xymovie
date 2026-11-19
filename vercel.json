@@ -1,4 +1,4 @@
 {
-  "$schema":"https://openapi.vercel.sh/vercel.json",
-  "functions":{"api/download.js":{"maxDuration":60}}
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true
 }
