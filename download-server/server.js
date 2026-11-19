@@ -227,12 +227,18 @@ async function downloadOriginal(url) {
 function runYtDlp(url) {
   return new Promise((resolve, reject) => {
     const args = [
-      "--dump-json", "--no-warnings", "--no-progress",
+      // Ekstraksi metadata saja. Jangan pernah memasang -f / --format di tahap preview.
+      "--dump-single-json",
+      "--skip-download",
+      "--ignore-no-formats-error",
+      "--no-check-formats",
+      "--no-warnings",
+      "--no-progress",
+      "--no-playlist",
       "--js-runtimes", "node",
-      // Metadata saja: jangan paksa format saat preview.
-      // Format dipilih setelah pengguna menekan tombol unduh.
-      "--no-playlist", "--skip-download", "--ignore-errors",
-      "--socket-timeout", "25", "--retries", "2",
+      "--socket-timeout", "45",
+      "--retries", "3",
+      "--extractor-retries", "3",
       "--user-agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36",
       url
     ];
@@ -242,9 +248,17 @@ function runYtDlp(url) {
     child.stderr.on("data", b => { err += b.toString(); if (err.length > 12000) err = err.slice(-12000); });
     child.on("error", e => reject(new Error("yt-dlp tidak ditemukan. Jalankan: pip install -U yt-dlp")));
     child.on("close", code => {
-      const items = out.split(/\r?\n/).filter(Boolean).flatMap(line => {
-        try { return [JSON.parse(line)]; } catch { return []; }
-      });
+      let items = [];
+      try {
+        const parsed = JSON.parse(out.trim());
+        items = Array.isArray(parsed.entries)
+          ? parsed.entries.filter(Boolean)
+          : [parsed];
+      } catch {
+        items = out.split(/\r?\n/).filter(Boolean).flatMap(line => {
+          try { return [JSON.parse(line)]; } catch { return []; }
+        });
+      }
       if (!items.length) {
         const detail = (err || "").trim().split(/\\r?\\n/).slice(-5).join(" ").slice(-700);
         const msg = /login|cookie|private|sign in|rate.?limit|403|429/i.test(err)
@@ -386,7 +400,7 @@ http.createServer(async (req, res) => {
     return;
   }
   if (req.method === "OPTIONS") return send(res, 200, { success: true });
-  if (req.method === "GET" && req.url === "/health") return send(res, 200, { success: true, service: "XYDOWN Download Engine" });
+  if (req.method === "GET" && req.url === "/health") return send(res, 200, { success: true, service: "XYDOWN Download Engine", version: "2026-11-20-youtube-metadata-fix" });
   if (req.method !== "POST" || req.url !== "/download") return send(res, 404, { success: false, message: "Endpoint tidak ditemukan." });
   try {
     let raw = "";
