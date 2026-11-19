@@ -170,7 +170,7 @@ http.createServer(async (req, res) => {
       const mediaUrl = requestUrl.searchParams.get("url");
       let target;
       try { target = new URL(mediaUrl); } catch { return send(res, 400, { success: false, message: "URL media tidak valid." }); }
-      const allowedMediaHost = /(^|\\.)(cdninstagram\\.com|fbcdn\\.net|instagram\\.com|tiktokcdn\\.com|tiktokv\\.com|byteoversea\\.com|ibytedtos\\.com|muscdn\\.com|tikwm\\.com|googlevideo\\.com|youtube\\.com|ytimg\\.com|akamaized\\.net)$/i.test(target.hostname);
+      const allowedMediaHost = /(^|\.)(cdninstagram\.com|fbcdn\.net|instagram\.com|tiktokcdn\.com|tiktokv\.com|byteoversea\.com|ibytedtos\.com|muscdn\.com|tikwm\.com|googlevideo\.com|youtube\.com|ytimg\.com|akamaized\.net)$/i.test(target.hostname);
       if (target.protocol !== "https:" || !allowedMediaHost) return send(res, 403, { success: false, message: "Host media tidak diizinkan." });
       const upstream = await fetch(target, {
         redirect: "follow",
@@ -179,7 +179,7 @@ http.createServer(async (req, res) => {
       });
       if (!upstream.ok || !upstream.body) return send(res, 502, { success: false, message: "File media gagal diambil dari sumber (" + upstream.status + ")." });
       const finalHost = new URL(upstream.url).hostname;
-      if (!/(^|\\.)(cdninstagram\\.com|fbcdn\\.net|instagram\\.com|tiktokcdn\\.com|tiktokv\\.com|byteoversea\\.com|ibytedtos\\.com|muscdn\\.com|tikwm\\.com|googlevideo\\.com|youtube\\.com|ytimg\\.com|akamaized\\.net)$/i.test(finalHost)) {
+      if (!/(^|\.)(cdninstagram\.com|fbcdn\.net|instagram\.com|tiktokcdn\.com|tiktokv\.com|byteoversea\.com|ibytedtos\.com|muscdn\.com|tikwm\.com|googlevideo\.com|youtube\.com|ytimg\.com|akamaized\.net)$/i.test(finalHost)) {
         return send(res, 403, { success: false, message: "Redirect media ditolak." });
       }
       const ext = (requestUrl.searchParams.get("ext") || "mp4").replace(/[^a-z0-9]/gi, "").slice(0, 8) || "mp4";
