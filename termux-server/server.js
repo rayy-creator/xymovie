@@ -104,14 +104,14 @@ function requestOnce(raw) {
   });
 }
 function htmlRedirect(body, base) {
-  let m=body.match(/<meta[^>]+http-equiv\\s*=\\s*["']?refresh["']?[^>]+content\\s*=\\s*["'][^"']*url\\s*=\\s*([^"'\\s>]+)/i);
-  if(!m) m=body.match(/<meta[^>]+content\\s*=\\s*["'][^"']*url\\s*=\\s*([^"'\\s>]+)[^>]+http-equiv\\s*=\\s*["']?refresh/i);
-  if(m) { try{return new URL(m[1].replace(/[;'"\\]]+$/,""),base).toString();}catch{} }
+  let m=body.match(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]+content\s*=\s*["'][^"']*url\s*=\s*([^"'\s>]+)/i);
+  if(!m) m=body.match(/<meta[^>]+content\s*=\s*["'][^"']*url\s*=\s*([^"'\s>]+)[^>]+http-equiv\s*=\s*["']?refresh/i);
+  if(m) { try{return new URL(m[1].replace(/[;'"\]]+$/,""),base).toString();}catch{} }
   const patterns=[
-    /(?:window\\.)?location\\.replace\\(\\s*["']([^"']+)["']\\s*\\)/i,
-    /(?:window\\.)?location\\.assign\\(\\s*["']([^"']+)["']\\s*\\)/i,
-    /(?:window\\.)?location\\.href\\s*=\\s*["']([^"']+)["']/i,
-    /(?:window\\.)?location\\s*=\\s*["']([^"']+)["']/i
+    /(?:window\.)?location\.replace\(\s*["']([^"']+)["']\s*\)/i,
+    /(?:window\.)?location\.assign\(\s*["']([^"']+)["']\s*\)/i,
+    /(?:window\.)?location\.href\s*=\s*["']([^"']+)["']/i,
+    /(?:window\.)?location\s*=\s*["']([^"']+)["']/i
   ];
   for(const re of patterns){const x=body.match(re);if(x){try{return new URL(x[1],base).toString();}catch{}}}
   return null;
