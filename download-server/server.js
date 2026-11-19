@@ -202,6 +202,7 @@ function runYtDlp(url) {
   return new Promise((resolve, reject) => {
     const args = [
       "--dump-json", "--no-warnings", "--no-progress",
+      "--js-runtimes", "node",
       "--format", "best[acodec!=none][vcodec!=none]/best",
       "--no-playlist", "--skip-download", "--ignore-errors",
       "--socket-timeout", "25", "--retries", "2",
@@ -218,10 +219,11 @@ function runYtDlp(url) {
         try { return [JSON.parse(line)]; } catch { return []; }
       });
       if (!items.length) {
+        const detail = (err || "").trim().split(/\\r?\\n/).slice(-5).join(" ").slice(-700);
         const msg = /login|cookie|private|sign in|rate.?limit|403|429/i.test(err)
-          ? "Instagram membatasi akses konten ini. Pastikan postingan publik; beberapa konten memang memerlukan cookies."
-          : "yt-dlp gagal mengambil media. Perbarui yt-dlp lalu coba lagi.";
-        return reject(new Error(msg + (code ? "" : "")));
+          ? "Platform membatasi akses konten ini. Pastikan postingan publik dan coba lagi."
+          : "yt-dlp gagal mengambil media." + (detail ? " Detail: " + detail : " Periksa yt-dlp dan koneksi server.");
+        return reject(new Error(msg));
       }
       resolve(items);
     });
