@@ -180,8 +180,8 @@ http.createServer(async (req, res) => {
     } catch (apiError) {
       console.error("[XYDOWN] API utama gagal, mencoba yt-dlp:", apiError.message);
       const items = await runYtDlp(targetUrl);
-      const media = items.flatMap(item => cleanFormats(item).map(format => ({
-        id: item.id || String(media.length + 1),
+      const media = items.flatMap((item, index) => cleanFormats(item).map(format => ({
+        id: item.id || String(index + 1),
         title: item.title || item.description || platform,
         caption: item.description || item.title || "",
         thumbnail: item.thumbnail || (item.thumbnails || []).at(-1)?.url || null,
