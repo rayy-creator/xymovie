@@ -1,0 +1,8 @@
+{
+  "name": "xybypass-termux-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "playwright-core": "^1.56.1" }
+}
