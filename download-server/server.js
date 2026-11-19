@@ -1,5 +1,10 @@
 const http = require("node:http");
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const crypto = require("node:crypto");
+const readyFiles = new Map();
 
 const PORT = Number(process.env.PORT || 3000);
 const MAX_BODY = 8192;
@@ -108,6 +113,66 @@ async function downloadWithApis(platform, url) {
   throw new Error(platform + " dialihkan ke extractor yt-dlp.");
 }
 
+
+function runCommand(command, args, timeout = 600000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args);
+    let stdout = "", stderr = "";
+    const timer = setTimeout(() => child.kill("SIGKILL"), timeout);
+    child.stdout.on("data", chunk => { stdout += chunk.toString(); });
+    child.stderr.on("data", chunk => { stderr += chunk.toString(); if (stderr.length > 12000) stderr = stderr.slice(-12000); });
+    child.on("error", error => { clearTimeout(timer); reject(error); });
+    child.on("close", code => {
+      clearTimeout(timer);
+      if (code !== 0) return reject(new Error((stderr || "yt-dlp gagal mengunduh video.").trim().slice(-1800)));
+      resolve(stdout.trim());
+    });
+  });
+}
+async function downloadOriginal(url) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "xydown-"));
+  const template = path.join(dir, "%(title).80B-%(id)s.%(ext)s");
+  try {
+    const printed = await runCommand("yt-dlp", [
+      "--no-warnings", "--no-playlist", "--no-part",
+      "--js-runtimes", "node",
+      "--socket-timeout", "30", "--retries", "3",
+      "-f", "bv*+ba/b",
+      "--merge-output-format", "mp4",
+      "--print", "after_move:filepath",
+      "-o", template, url
+    ]);
+    const lines = printed.split(/\\r?\\n/).filter(Boolean);
+    let file = lines.length ? lines[lines.length - 1] : "";
+    if (!path.isAbsolute(file) || !fs.existsSync(file)) {
+      const candidates = fs.readdirSync(dir).map(name => path.join(dir, name))
+        .filter(name => fs.statSync(name).isFile());
+      if (!candidates.length) throw new Error("yt-dlp selesai tetapi file hasil unduhan tidak ditemukan.");
+      file = candidates.sort((a,b) => fs.statSync(b).size - fs.statSync(a).size)[0];
+    }
+    const id = crypto.randomBytes(18).toString("hex");
+    readyFiles.set(id, { file, dir });
+    const cleanup = setTimeout(() => {
+      const saved = readyFiles.get(id);
+      readyFiles.delete(id);
+      if (saved) fs.rm(saved.dir, { recursive: true, force: true }, () => {});
+    }, 60 * 60 * 1000);
+    cleanup.unref?.();
+    const ext = path.extname(file).slice(1).toLowerCase() || "mp4";
+    return {
+      title: path.basename(file, path.extname(file)),
+      caption: "",
+      thumbnail: null,
+      media: [{
+        id, title: path.basename(file), caption: "", thumbnail: null, type: "video",
+        formats: [{ url: "/file?id=" + id, ext, height: null }]
+      }]
+    };
+  } catch (error) {
+    fs.rm(dir, { recursive: true, force: true }, () => {});
+    throw error;
+  }
+}
 function runYtDlp(url) {
   return new Promise((resolve, reject) => {
     const args = [
@@ -170,6 +235,23 @@ function cleanFormats(info) {
     }));
 }
 http.createServer(async (req, res) => {
+
+  if (req.method === "GET" && req.url.startsWith("/file?id=")) {
+    const id = new URL(req.url, "http://localhost").searchParams.get("id");
+    const saved = readyFiles.get(id);
+    if (!saved || !fs.existsSync(saved.file)) return send(res, 404, { success: false, message: "File tidak tersedia atau sudah kedaluwarsa. Proses ulang tautannya." });
+    const ext = path.extname(saved.file).toLowerCase();
+    const mime = ext === ".webm" ? "video/webm" : ext === ".mkv" ? "video/x-matroska" : "video/mp4";
+    res.writeHead(200, {
+      "content-type": mime,
+      "content-length": fs.statSync(saved.file).size,
+      "content-disposition": 'attachment; filename="xydown-' + id + (ext || ".mp4") + '"',
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*"
+    });
+    fs.createReadStream(saved.file).pipe(res);
+    return;
+  }
   if (req.method === "GET" && req.url.startsWith("/file?")) {
     try {
       const requestUrl = new URL(req.url, "http://localhost");
@@ -230,10 +312,10 @@ http.createServer(async (req, res) => {
     const platform = host.includes("instagram.com") ? "Instagram" :
       (host.includes("tiktok.com") ? "TikTok" : "YouTube");
     let result;
-    try {
-      result = await downloadWithApis(platform, targetUrl);
-    } catch (apiError) {
-      console.error("[XYDOWN] API utama gagal, mencoba yt-dlp:", apiError.message);
+    if (platform === "TikTok" || platform === "YouTube") {
+      // Download and merge the real source file on Termux, then serve that file.
+      result = await downloadOriginal(targetUrl);
+    } else {
       const items = await runYtDlp(targetUrl);
       const media = items.flatMap((item, index) => cleanFormats(item).map(format => ({
         id: item.id || String(index + 1),
@@ -243,7 +325,7 @@ http.createServer(async (req, res) => {
         formats: [format],
         type: /^(jpg|jpeg|png|webp|avif)$/i.test(format.ext || "") ? "photo" : "video"
       })));
-      if (!media.length) throw apiError;
+      if (!media.length) throw new Error("yt-dlp tidak menemukan media yang bisa diunduh.");
       result = { title: media[0].title, caption: media[0].caption, thumbnail: media[0].thumbnail, media };
     }
     const media = result.media || [];
