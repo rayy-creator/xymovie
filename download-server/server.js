@@ -55,62 +55,57 @@ function normalizeMedia(items, fallbackTitle = "Media ditemukan") {
 }
 
 async function downloadWithApis(platform, url) {
+  // Sumber yang memang tersedia di ZIP:
+  // TikTok memakai TikWM; Instagram/YouTube memakai yt-dlp sebagai extractor.
   if (platform === "TikTok") {
-    try {
-      const response = await clutchGet("tiktok", url);
-      const result = response.result;
-      if (response.status && Array.isArray(result?.data) && result.data.length) {
-        const media = normalizeMedia(result.data.map(x => ({ ...x, title: result.title, thumbnail: result.cover })), result.title);
-        return { title: result.title || "TikTok", caption: result.title || "", thumbnail: result.cover || null, media };
-      }
-    } catch (e) { console.error("[XYDOWN] Clutch TikTok:", e.message); }
-
-    const tikwmUrl = new URL("https://www.tikwm.com/api/");
-    tikwmUrl.search = new URLSearchParams({ url, count: "12", cursor: "0", web: "1", hd: "1" }).toString();
-    const response = await fetch(tikwmUrl, {
+    const endpoint = new URL("https://www.tikwm.com/api/");
+    endpoint.search = new URLSearchParams({
+      url, count: "12", cursor: "0", web: "1", hd: "1"
+    }).toString();
+    const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "accept": "application/json"
+      },
       body: "",
       signal: AbortSignal.timeout(30000)
     });
-    const json = await response.json();
+    const raw = await response.text();
+    let json;
+    try { json = JSON.parse(raw); }
+    catch {
+      throw new Error("TikWM mengembalikan halaman non-JSON (HTTP " + response.status + ").");
+    }
     const d = json.data;
-    if (d) {
-      const items = [];
-      if (Array.isArray(d.images) && d.images.length) {
-        for (const image of d.images) items.push({ type: "photo", url: image, title: d.title, thumbnail: d.cover });
-      } else {
-        if (d.hdplay) items.push({ type: "video", url: d.hdplay.startsWith("http") ? d.hdplay : "https://www.tikwm.com" + d.hdplay, title: d.title, thumbnail: d.cover });
-        if (!items.length && d.play) items.push({ type: "video", url: d.play.startsWith("http") ? d.play : "https://www.tikwm.com" + d.play, title: d.title, thumbnail: d.cover });
-      }
-      if (items.length) return { title: d.title || "TikTok", caption: d.title || "", thumbnail: d.cover || null, media: normalizeMedia(items, d.title) };
+    if (!response.ok || !d) throw new Error(json.msg || "TikWM tidak menemukan media.");
+    const items = [];
+    if (Array.isArray(d.images) && d.images.length) {
+      for (const image of d.images) items.push({
+        type: "photo", url: image, title: d.title, thumbnail: d.cover
+      });
+    } else {
+      const video = d.hdplay || d.play;
+      if (video) items.push({
+        type: "video",
+        url: video.startsWith("http") ? video : "https://www.tikwm.com" + video,
+        title: d.title, thumbnail: d.cover
+      });
     }
-    throw new Error("TikTok API tidak mengembalikan media yang bisa diunduh.");
+    if (!items.length) throw new Error("TikWM tidak mengembalikan file media.");
+    const media = normalizeMedia(items, d.title || "TikTok");
+    return {
+      title: d.title || "TikTok",
+      caption: d.title || "",
+      thumbnail: d.cover || null,
+      media
+    };
   }
 
-  if (platform === "Instagram") {
-    const response = await clutchGet("instagram", url);
-    const result = response.result;
-    if (!response.status || !Array.isArray(result?.data) || !result.data.length) {
-      throw new Error(response.error || "API Instagram tidak menemukan media.");
-    }
-    const caption = result.caption?.text || "";
-    const media = normalizeMedia(result.data.map(x => ({
-      ...x, caption, title: result.profile?.username ? "@" + result.profile.username : "Instagram",
-      type: x.type === "video" ? "video" : "photo"
-    })), "Instagram");
-    return { title: result.profile?.username ? "@" + result.profile.username : "Instagram", caption, thumbnail: media[0]?.formats?.[0]?.url || null, media };
-  }
-
-  if (platform === "YouTube") {
-    const response = await clutchGet("youtube", url, "&quality=720p");
-    const data = response.result || response.data;
-    const videoUrl = data?.video || data?.download;
-    if (!videoUrl) throw new Error(response.error || "API YouTube tidak mengembalikan URL video.");
-    const media = normalizeMedia([{ type: "video", url: videoUrl, title: data.title, thumbnail: data.thumbnail }], data.title || "YouTube");
-    return { title: data.title || "YouTube", caption: data.duration ? "Durasi: " + data.duration : "", thumbnail: data.thumbnail || null, media };
-  }
-  throw new Error("Platform belum didukung.");
+  // ZIP tidak menyertakan endpoint downloader Instagram/YouTube mandiri.
+  // Gunakan yt-dlp yang juga menjadi fallback resmi pada backend ini.
+  throw new Error(platform + " dialihkan ke extractor yt-dlp.");
 }
 
 function runYtDlp(url) {
