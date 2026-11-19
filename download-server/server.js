@@ -164,6 +164,48 @@ function cleanFormats(info) {
     }));
 }
 http.createServer(async (req, res) => {
+  if (req.method === "GET" && req.url.startsWith("/file?")) {
+    try {
+      const requestUrl = new URL(req.url, "http://localhost");
+      const mediaUrl = requestUrl.searchParams.get("url");
+      let target;
+      try { target = new URL(mediaUrl); } catch { return send(res, 400, { success: false, message: "URL media tidak valid." }); }
+      const allowedMediaHost = /(^|\\.)(cdninstagram\\.com|fbcdn\\.net|instagram\\.com|tiktokcdn\\.com|tiktokv\\.com|byteoversea\\.com|ibytedtos\\.com|muscdn\\.com|tikwm\\.com|googlevideo\\.com|youtube\\.com|ytimg\\.com|akamaized\\.net)$/i.test(target.hostname);
+      if (target.protocol !== "https:" || !allowedMediaHost) return send(res, 403, { success: false, message: "Host media tidak diizinkan." });
+      const upstream = await fetch(target, {
+        redirect: "follow",
+        signal: AbortSignal.timeout(90000),
+        headers: { "user-agent": "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36" }
+      });
+      if (!upstream.ok || !upstream.body) return send(res, 502, { success: false, message: "File media gagal diambil dari sumber (" + upstream.status + ")." });
+      const finalHost = new URL(upstream.url).hostname;
+      if (!/(^|\\.)(cdninstagram\\.com|fbcdn\\.net|instagram\\.com|tiktokcdn\\.com|tiktokv\\.com|byteoversea\\.com|ibytedtos\\.com|muscdn\\.com|tikwm\\.com|googlevideo\\.com|youtube\\.com|ytimg\\.com|akamaized\\.net)$/i.test(finalHost)) {
+        return send(res, 403, { success: false, message: "Redirect media ditolak." });
+      }
+      const ext = (requestUrl.searchParams.get("ext") || "mp4").replace(/[^a-z0-9]/gi, "").slice(0, 8) || "mp4";
+      res.writeHead(200, {
+        "content-type": upstream.headers.get("content-type") || (ext === "jpg" ? "image/jpeg" : "application/octet-stream"),
+        "content-disposition": 'attachment; filename="xydown-' + Date.now() + '.' + ext + '"',
+        "cache-control": "no-store",
+        "access-control-allow-origin": "*"
+      });
+      const reader = upstream.body.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!res.write(Buffer.from(value))) await new Promise(resolve => res.once("drain", resolve));
+        }
+        res.end();
+      } catch (streamError) {
+        res.destroy(streamError);
+      }
+    } catch (error) {
+      if (!res.headersSent) send(res, 502, { success: false, message: "Gagal menyiapkan file unduhan: " + error.message });
+      else res.destroy(error);
+    }
+    return;
+  }
   if (req.method === "OPTIONS") return send(res, 200, { success: true });
   if (req.method === "GET" && req.url === "/health") return send(res, 200, { success: true, service: "XYDOWN Download Engine" });
   if (req.method !== "POST" || req.url !== "/download") return send(res, 404, { success: false, message: "Endpoint tidak ditemukan." });
