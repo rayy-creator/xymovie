@@ -1,58 +1,71 @@
-# XYBYPASS Termux Engine
+# XYBYPASS Android Engine
 
-Browser-based resolver for the XYBYPASS website. Runs on Android/Termux with Node.js, Chromium and Playwright Core.
+Lightweight Node.js resolver for Android/Termux. No Python, Chromium, Playwright, or npm dependencies are required.
 
-## Install on Termux
+## Update and install
 
-Use a current Termux build (F-Droid or GitHub release), then run:
+If the repository is already cloned:
 
 ```sh
-pkg update && pkg upgrade -y
-pkg install nodejs-lts git x11-repo chromium cloudflared -y
-git clone https://github.com/rayy-creator/xymovie.git
-cd xymovie/termux-server
+cd ~/xymovie
+git pull
+cd termux-server
 npm install
+node --check server.js
 ```
 
-Find Chromium's path:
+Start the engine:
 
 ```sh
-which chromium-browser || which chromium
-```
-
-Set the path if needed, then start the engine:
-
-```sh
-export CHROMIUM_PATH="$(which chromium-browser || which chromium)"
 export XYBYPASS_TOKEN="buat-token-panjang-acak"
 npm start
 ```
 
-Health check: `http://127.0.0.1:8787/health`
+The token is optional for local testing. For public access, always set a long random token and keep it private.
 
-## Expose it to the website
+## Test
 
-In another Termux session:
+Open in the phone browser:
+
+`http://127.0.0.1:8787/health`
+
+Provider registry:
+
+`http://127.0.0.1:8787/providers`
+
+Test API locally from another Termux session:
 
 ```sh
+curl -X POST http://127.0.0.1:8787/api/bypass \
+  -H 'content-type: application/json' \
+  -H 'x-xybypass-token: buat-token-panjang-acak' \
+  -d '{"url":"https://sfl.gl/example"}'
+```
+
+Replace the example URL with a real link. If no token was configured in the server session, omit the `x-xybypass-token` header.
+
+## Optional public access
+
+Install Cloudflare Tunnel only if the package is available in your Termux repositories:
+
+```sh
+pkg install cloudflared
 cloudflared tunnel --url http://127.0.0.1:8787
 ```
 
-Copy the HTTPS trycloudflare URL printed in the terminal. In XYBYPASS, open the hidden admin page (`/#/admin`), enter that URL as **Termux Engine URL**, enter the same token as **Engine Token**, then save. Keep both Termux sessions running.
-
-For a stable URL, create a named Cloudflare Tunnel from your own Cloudflare account. Quick Tunnels may change URL when restarted.
+Copy the HTTPS URL printed by the command. In XYBYPASS admin settings (`/#/admin`), set **Termux Engine URL** to that URL and **Engine Token** to the same token configured in the server session. Keep both Termux sessions running.
 
 ## Endpoints
 
 - `GET /health` — engine status
 - `GET /providers` — candidate provider registry
-- `POST /api/bypass` — JSON body: `{"url":"https://..." }`
+- `POST /api/bypass` — JSON body: `{"url":"https://..."}`
 
-## Important
+## Limitations and safety
 
-- The registry is a list of candidate domains, not a promise that every provider works at all times.
-- Chromium executes ordinary page JavaScript and follows browser redirects. Timers, changing tokens, login walls, CAPTCHA and human verification may still prevent resolution.
-- CAPTCHA/human verification is not bypassed.
-- The engine accepts only registered provider domains and blocks local/private network destinations.
+- The provider registry contains candidate domains; it does not mean every provider is active or supported.
+- This engine follows HTTP redirects and detects some HTML meta-refresh and simple JavaScript redirects.
+- It does not execute JavaScript, solve CAPTCHA, bypass human verification, or automate timers, login, cookies, or provider-specific tokens.
+- Redirects are limited and local/private network destinations are blocked.
 - Keep the token private. Do not publish it in screenshots or public repositories.
-- Android may stop background processes to save battery. Disable battery optimization for Termux and use `termux-wake-lock` while running.
+- Android may stop background processes. You can run `termux-wake-lock` while the engine is active.
