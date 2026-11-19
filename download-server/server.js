@@ -229,7 +229,8 @@ function runYtDlp(url) {
     const args = [
       "--dump-json", "--no-warnings", "--no-progress",
       "--js-runtimes", "node",
-      "--format", "best[acodec!=none][vcodec!=none]/best",
+      // Metadata saja: jangan paksa format saat preview.
+      // Format dipilih setelah pengguna menekan tombol unduh.
       "--no-playlist", "--skip-download", "--ignore-errors",
       "--socket-timeout", "25", "--retries", "2",
       "--user-agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36",
