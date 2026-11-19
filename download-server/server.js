@@ -51,18 +51,31 @@ function runYtDlp(url) {
   });
 }
 function cleanFormats(info) {
-  const formats = Array.isArray(info.formats) ? info.formats : [];
-  const candidates = formats.filter(f => f.url && !f.has_drm && f.vcodec !== "none")
-    .sort((a,b) => (b.height || 0) - (a.height || 0));
-  const picked = candidates.length ? candidates : (info.url ? [{
-    url: info.url, ext: info.ext || "mp4", height: info.height || null,
-    vcodec: info.vcodec || "unknown"
-  }] : []);
-  return picked.slice(0, 15).map(f => ({
-    url: f.url, ext: f.ext || info.ext || "mp4",
-    height: f.height || info.height || null,
-    format: f.format || f.format_id || ""
-  }));
+  const source = [
+    ...(Array.isArray(info.formats) ? info.formats : []),
+    ...(Array.isArray(info.requested_formats) ? info.requested_formats : []),
+    ...(Array.isArray(info.requested_downloads) ? info.requested_downloads : [])
+  ];
+  const isImage = f => /^(jpg|jpeg|png|webp|avif)$/i.test(f.ext || "");
+  const candidates = source.filter(f =>
+    f.url && !f.has_drm && (f.vcodec !== "none" || isImage(f))
+  );
+  if (!candidates.length && info.url &&
+      (info.vcodec !== "none" || /^(jpg|jpeg|png|webp|avif)$/i.test(info.ext || ""))) {
+    candidates.push({
+      url: info.url, ext: info.ext || "mp4",
+      height: info.height || null, vcodec: info.vcodec || "unknown"
+    });
+  }
+  const unique = [...new Map(candidates.map(f => [f.url, f])).values()];
+  return unique
+    .sort((a,b) => (b.height || 0) - (a.height || 0))
+    .slice(0, 20)
+    .map(f => ({
+      url: f.url, ext: f.ext || info.ext || "mp4",
+      height: f.height || info.height || null,
+      format: f.format || f.format_id || ""
+    }));
 }
 http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") return send(res, 200, { success: true });
