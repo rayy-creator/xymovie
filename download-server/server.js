@@ -261,6 +261,43 @@ function cleanFormats(info) {
 }
 http.createServer(async (req, res) => {
 
+  if (req.method === "GET" && req.url.startsWith("/download-file?")) {
+    try {
+      const requestUrl = new URL(req.url, "http://localhost");
+      const sourceUrl = requestUrl.searchParams.get("url") || "";
+      const kind = requestUrl.searchParams.get("type") || "video";
+      if (!validUrl(sourceUrl) || !["video", "mp3"].includes(kind)) {
+        return send(res, 400, { success: false, message: "Permintaan unduhan tidak valid." });
+      }
+      const saved = kind === "mp3"
+        ? await saveYtDlpFile(sourceUrl, [
+            "-f", "ba/b", "-x", "--audio-format", "mp3", "--audio-quality", "0"
+          ], "MP3")
+        : await saveYtDlpFile(sourceUrl, [
+            "-f", "bv*+ba/b", "--merge-output-format", "mp4"
+          ], "video");
+      const ext = path.extname(saved.file).toLowerCase() || (kind === "mp3" ? ".mp3" : ".mp4");
+      const mime = ext === ".mp3" ? "audio/mpeg" : ext === ".webm" ? "video/webm" : "video/mp4";
+      res.writeHead(200, {
+        "content-type": mime,
+        "content-length": fs.statSync(saved.file).size,
+        "content-disposition": 'attachment; filename="xydown-' + kind + ext + '"',
+        "cache-control": "no-store",
+        "access-control-allow-origin": "*"
+      });
+      const stream = fs.createReadStream(saved.file);
+      stream.on("error", error => res.destroy(error));
+      stream.on("close", () => {
+        readyFiles.delete(saved.id);
+        fs.rm(saved.dir, { recursive: true, force: true }, () => {});
+      });
+      stream.pipe(res);
+    } catch (error) {
+      if (!res.headersSent) send(res, 502, { success: false, message: "Gagal membuat file unduhan: " + error.message });
+      else res.destroy(error);
+    }
+    return;
+  }
   if (req.method === "GET" && req.url.startsWith("/file?id=")) {
     const id = new URL(req.url, "http://localhost").searchParams.get("id");
     const saved = readyFiles.get(id);
@@ -337,9 +374,30 @@ http.createServer(async (req, res) => {
     const platform = host.includes("instagram.com") ? "Instagram" :
       (host.includes("tiktok.com") ? "TikTok" : "YouTube");
     let result;
-    if (platform === "TikTok" || platform === "YouTube") {
-      // Download and merge the real source file on Termux, then serve that file.
-      result = await downloadOriginal(targetUrl);
+    if (platform === "TikTok") {
+      result = await downloadWithApis(platform, targetUrl);
+    } else if (platform === "YouTube") {
+      // Hanya ambil metadata saat pengguna memproses tautan.
+      // File video/audio baru dibuat setelah pengguna menekan pilihan format.
+      const items = await runYtDlp(targetUrl);
+      const info = items[0];
+      const encoded = encodeURIComponent(targetUrl);
+      result = {
+        title: info.title || "YouTube",
+        caption: info.description || info.title || "",
+        thumbnail: info.thumbnail || (info.thumbnails || []).at(-1)?.url || null,
+        media: [{
+          id: info.id || "youtube",
+          title: info.title || "YouTube",
+          caption: info.description || "",
+          thumbnail: info.thumbnail || null,
+          type: "video",
+          formats: [
+            { url: "/download-file?url=" + encoded + "&type=video", ext: "mp4", label: "Video MP4" },
+            { url: "/download-file?url=" + encoded + "&type=mp3", ext: "mp3", label: "Audio MP3" }
+          ]
+        }]
+      };
     } else {
       const items = await runYtDlp(targetUrl);
       const media = items.flatMap((item, index) => cleanFormats(item).map(format => ({
