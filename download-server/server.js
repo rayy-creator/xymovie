@@ -167,7 +167,7 @@ async function saveYtDlpFile(url, args, label) {
       }
     }
     if (lastError) throw lastError;
-    const lines = printed.split(/\\r?\\n/).filter(Boolean);
+    const lines = printed.split(/\r?\n/).filter(Boolean);
     let file = lines.length ? lines[lines.length - 1] : "";
     if (!path.isAbsolute(file) || !fs.existsSync(file)) {
       const candidates = fs.readdirSync(dir).map(name => path.join(dir, name))
@@ -260,7 +260,7 @@ function runYtDlp(url) {
         });
       }
       if (!items.length) {
-        const detail = (err || "").trim().split(/\\r?\\n/).slice(-5).join(" ").slice(-700);
+        const detail = (err || "").trim().split(/\r?\n/).slice(-5).join(" ").slice(-700);
         const msg = /login|cookie|private|sign in|rate.?limit|403|429/i.test(err)
           ? "Platform membatasi akses konten ini. Pastikan postingan publik dan coba lagi."
           : "yt-dlp gagal mengambil media." + (detail ? " Detail: " + detail : " Periksa yt-dlp dan koneksi server.");
