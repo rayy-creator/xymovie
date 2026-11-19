@@ -112,7 +112,8 @@ function runYtDlp(url) {
   return new Promise((resolve, reject) => {
     const args = [
       "--dump-json", "--no-warnings", "--no-progress",
-      "--skip-download", "--ignore-errors",
+      "--format", "best[acodec!=none][vcodec!=none]/best",
+      "--no-playlist", "--skip-download", "--ignore-errors",
       "--socket-timeout", "25", "--retries", "2",
       "--user-agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36",
       url
@@ -137,14 +138,19 @@ function runYtDlp(url) {
   });
 }
 function cleanFormats(info) {
-  const source = [
-    ...(Array.isArray(info.formats) ? info.formats : []),
-    ...(Array.isArray(info.requested_formats) ? info.requested_formats : []),
-    ...(Array.isArray(info.requested_downloads) ? info.requested_downloads : [])
+  // Prefer the exact format selected by yt-dlp. Listing every available
+  // YouTube format can expose video-only streams (no audio) as downloads.
+  const selected = [
+    ...(Array.isArray(info.requested_downloads) ? info.requested_downloads : []),
+    ...(Array.isArray(info.requested_formats) ? info.requested_formats : [])
   ];
+  const source = selected.length ? selected : (info.url ? [{
+    url: info.url, ext: info.ext, height: info.height,
+    vcodec: info.vcodec, acodec: info.acodec, format: info.format
+  }] : (Array.isArray(info.formats) ? info.formats : []));
   const isImage = f => /^(jpg|jpeg|png|webp|avif)$/i.test(f.ext || "");
   const candidates = source.filter(f =>
-    f.url && !f.has_drm && (f.vcodec !== "none" || isImage(f))
+    f.url && !f.has_drm && (isImage(f) || (f.vcodec !== "none" && f.acodec !== "none"))
   );
   if (!candidates.length && info.url &&
       (info.vcodec !== "none" || /^(jpg|jpeg|png|webp|avif)$/i.test(info.ext || ""))) {
