@@ -72,11 +72,20 @@ async function resolveLink(value) {
     const type = r.headers.get("content-type") || "";
     if (type.includes("text/html")) {
       const html = (await r.text()).slice(0, 180000);
-      const meta = html.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url=([^"' >]+)/i);
+      let metaTarget = null;
+      for (const tag of html.matchAll(/<meta\b[^>]*>/gi)) {
+        const attrs = tag[0];
+        const equiv = (attrs.match(/http-equiv\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || "";
+        if (equiv.toLowerCase() !== "refresh") continue;
+        const content = (attrs.match(/content\s*=\s*["']([^"']+)["']/i) || [])[1] ||
+                        (attrs.match(/content\s*=\s*([^\s>]+)/i) || [])[1] || "";
+        const found = content.match(/url\s*=\s*['"]?([^'";]+)['"]?/i);
+        if (found) { metaTarget = found[1].trim(); break; }
+      }
       const js = html.match(/(?:window\.)?location(?:\.href)?\s*=\s*["'](https?:\/\/[^"']+)["']/i);
-      const candidate = meta?.[1] || js?.[1];
+      const candidate = metaTarget || js?.[1];
       if (candidate) {
-        current = new URL(candidate.replace(/&amp;/g, "&"), u).toString();
+        current = new URL(candidate.replace(/&amp;/g, "&").replace(/&#38;/g, "&"), u).toString();
         continue;
       }
     }
