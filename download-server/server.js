@@ -328,12 +328,23 @@ http.createServer(async (req, res) => {
         "cache-control": "no-store",
         "access-control-allow-origin": "*"
       });
+      res.setHeader("accept-ranges", "bytes");
+      res.setHeader("x-content-type-options", "nosniff");
+      res.setHeader("access-control-expose-headers", "content-disposition, content-length");
       const stream = fs.createReadStream(saved.file);
-      stream.on("error", error => res.destroy(error));
-      stream.on("close", () => {
+      const cleanup = () => {
         readyFiles.delete(saved.id);
         fs.rm(saved.dir, { recursive: true, force: true }, () => {});
+      };
+      stream.on("error", error => {
+        cleanup();
+        if (!res.headersSent) send(res, 500, { success: false, message: "Gagal membaca file hasil unduhan." });
+        else res.destroy(error);
       });
+      res.on("close", () => {
+        if (!res.writableEnded) stream.destroy();
+      });
+      stream.on("end", cleanup);
       stream.pipe(res);
     } catch (error) {
       if (!res.headersSent) send(res, 502, { success: false, message: "Gagal membuat file unduhan: " + error.message });
