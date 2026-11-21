@@ -321,29 +321,44 @@ http.createServer(async (req, res) => {
           ], "video");
       const ext = path.extname(saved.file).toLowerCase() || (kind === "mp3" ? ".mp3" : ".mp4");
       const mime = ext === ".mp3" ? "audio/mpeg" : ext === ".webm" ? "video/webm" : "video/mp4";
-      res.writeHead(200, {
+      const stat = fs.statSync(saved.file);
+      const range = req.headers.range;
+      let start = 0, end = stat.size - 1, status = 200;
+      if (range) {
+        const match = /^bytes=(\\d*)-(\\d*)$/.exec(range);
+        if (match) {
+          if (match[1]) start = Number(match[1]);
+          if (match[2]) end = Number(match[2]);
+          if (!match[1] && match[2]) start = Math.max(0, stat.size - Number(match[2]));
+          end = Math.min(end, stat.size - 1);
+          if (start > end || start >= stat.size) {
+            res.writeHead(416, { "content-range": "bytes */" + stat.size, "access-control-allow-origin": "*" });
+            return res.end();
+          }
+          status = 206;
+        }
+      }
+      res.writeHead(status, {
         "content-type": mime,
-        "content-length": fs.statSync(saved.file).size,
+        "content-length": end - start + 1,
         "content-disposition": 'attachment; filename="xydown-' + kind + ext + '"',
         "cache-control": "no-store",
-        "access-control-allow-origin": "*"
+        "accept-ranges": "bytes",
+        ...(status === 206 ? { "content-range": "bytes " + start + "-" + end + "/" + stat.size } : {}),
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "content-disposition, content-length, content-range",
+        "x-content-type-options": "nosniff"
       });
-      res.setHeader("accept-ranges", "bytes");
-      res.setHeader("x-content-type-options", "nosniff");
-      res.setHeader("access-control-expose-headers", "content-disposition, content-length");
-      const stream = fs.createReadStream(saved.file);
+      const stream = fs.createReadStream(saved.file, { start, end });
       const cleanup = () => {
         readyFiles.delete(saved.id);
         fs.rm(saved.dir, { recursive: true, force: true }, () => {});
       };
       stream.on("error", error => {
-        cleanup();
         if (!res.headersSent) send(res, 500, { success: false, message: "Gagal membaca file hasil unduhan." });
         else res.destroy(error);
       });
-      res.on("close", () => {
-        if (!res.writableEnded) stream.destroy();
-      });
+      res.on("close", () => { if (!res.writableEnded) stream.destroy(); });
       stream.on("end", cleanup);
       stream.pipe(res);
     } catch (error) {
