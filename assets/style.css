@@ -32,3 +32,5 @@ body{background:var(--bg);color:#101820}
 .modal input{background:#fff;color:#101820;border:2px solid #101820}
 .footer{border-color:#101820;color:#52606b}
 .preview-image-wrap{border:2px solid #101820}
+
+.brand .xy-logo{width:48px;height:36px;object-fit:contain;display:block}.brand{display:flex;align-items:center;gap:12px}
