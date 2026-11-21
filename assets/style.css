@@ -79,7 +79,7 @@ body{background:#f7f5f2;color:#191719}
 :root{--bg:#171719;--surface:#252326;--line:#080808;--text:#eee9df;--muted:#aaa39a;--red:#c94a52;--red2:#df777c}
 body{background:#171719;color:#eee9df}
 .topbar{background:#1e1d20;border-bottom:2px solid #080808;box-shadow:0 3px 0 #080808}
-.brand{color:#eee9df}.brand .mark{font-size:0;color:transparent;background:#c94a52 url('/xy-logo.svg') center/contain no-repeat;border:2px solid #080808;box-shadow:3px 3px 0 #080808;border-radius:7px}
+.brand{color:#eee9df}.brand .mark{font-size:0;color:transparent;background:#c94a52 url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20320%20220%22%3E%3Cpath%20d%3D%22M22%20190%20202%2020h95L117%20190Z%22%20fill%3D%22%23e32636%22%20stroke%3D%22%23090909%22%20stroke-width%3D%222%22%2F%3E%3Cpath%20d%3D%22M22%2024h72q12%200%2022%209l55%2055-35%2032L22%2024Z%22%20fill%3D%22%23fff%22%20stroke%3D%22%23111%22%20stroke-width%3D%222%22%2F%3E%3Cpath%20d%3D%22m161%20132%2035-32%2093%2096q8%2010-8%2010h-55q-14%200-23-10Z%22%20fill%3D%22%23fff%22%20stroke%3D%22%23111%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E') center/contain no-repeat;border:2px solid #080808;box-shadow:3px 3px 0 #080808;border-radius:7px}
 .brand small{color:#aaa39a}
 .nav{color:#bbb4ab}.nav a:hover{color:#e17a7f}
 .hero{background:radial-gradient(ellipse at 85% 10%,#493034 0,transparent 43%),#1b1a1d}
