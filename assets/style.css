@@ -73,3 +73,26 @@ body{background:#f7f5f2;color:#191719}
 .modal-backdrop{background:#19171988}.modal{box-shadow:0 18px 60px #0002}
 @media(max-width:600px){.topbar{height:64px;padding:0 16px}.hero{padding:70px 18px 55px}.tool{gap:9px}.tool .btn{width:100%}.section{padding:48px 18px}}
 
+
+
+/* XYDOWN — muted warm-dark neo-brutalist */
+:root{--bg:#171719;--surface:#252326;--line:#080808;--text:#eee9df;--muted:#aaa39a;--red:#c94a52;--red2:#df777c}
+body{background:#171719;color:#eee9df}
+.topbar{background:#1e1d20;border-bottom:2px solid #080808;box-shadow:0 3px 0 #080808}
+.brand{color:#eee9df}.brand .mark{font-size:0;color:transparent;background:#c94a52 url('/xy-logo.svg') center/contain no-repeat;border:2px solid #080808;box-shadow:3px 3px 0 #080808;border-radius:7px}
+.brand small{color:#aaa39a}
+.nav{color:#bbb4ab}.nav a:hover{color:#e17a7f}
+.hero{background:radial-gradient(ellipse at 85% 10%,#493034 0,transparent 43%),#1b1a1d}
+.hero h1{color:#eee9df}.hero h1 span,.eyebrow{color:#e17a7f}
+.platforms span{background:#282629;border:1px solid #484247;color:#c9c1b8;border-radius:8px;box-shadow:none}
+.tool,.result,.card,.stat,.support-box,.modal{background:#252326;color:#eee9df;border:2px solid #090909;border-radius:11px;box-shadow:3px 3px 0 #090909}
+.tool input{background:#1a191c;color:#eee9df;border:1px solid #4b4548;border-radius:8px}
+.btn,.btn-small,.download-item,.format-link{background:#c94a52;color:#fff;border:2px solid #090909;box-shadow:3px 3px 0 #090909;border-radius:8px}
+.btn:hover,.format-link:hover{background:#a83a43;transform:translate(1px,1px);box-shadow:2px 2px 0 #090909}
+.lead,.card p,.about p,.support-box p,.muted,.hint{color:#b6aea5}
+.section{padding-top:58px;padding-bottom:58px}.card{box-shadow:3px 3px 0 #090909}
+.card-icon{background:#493034;color:#e17a7f;border-radius:8px}
+.preview-image-wrap{border:2px solid #090909;border-radius:11px}
+.footer{border-color:#393538;color:#aaa39a}
+.modal-backdrop{background:#080708bb}.modal{box-shadow:4px 4px 0 #080808}
+
