@@ -6,7 +6,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const readyFiles = new Map();
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 3000);
 const MAX_BODY = 8192;
 const ALLOWED = ["instagram.com", "tiktok.com", "youtube.com", "youtu.be"];
 
