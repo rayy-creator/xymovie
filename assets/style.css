@@ -34,3 +34,18 @@ body{background:var(--bg);color:#101820}
 .preview-image-wrap{border:2px solid #101820}
 
 .brand .xy-logo{width:48px;height:36px;object-fit:contain;display:block}.brand{display:flex;align-items:center;gap:12px}
+
+
+/* XY red identity + neo-brutalist component language */
+:root{--bg:#f4f0e8;--surface:#fffdf8;--line:#151515;--text:#151515;--muted:#5d5752;--red:#e32636;--red2:#ff5966}
+body{background:var(--bg);color:var(--text)}
+.topbar{background:#f4f0e8ed;border-bottom:2px solid #151515}
+.brand .mark,.mark{background:#e32636;color:#fff;border:2px solid #151515;border-radius:8px;box-shadow:4px 4px 0 #151515}
+.nav{color:#514b47}.nav a:hover{color:#e32636}
+.account-btn,.tool input,.search,input,textarea,select{background:#fffdf8;color:#151515;border:2px solid #151515;border-radius:8px}
+.hero h1{color:#151515}.eyebrow{color:#e32636}
+.platforms span,.tool,.result,.card,.stat,.support-box,.modal{background:#fffdf8;color:#151515;border:2px solid #151515;border-radius:10px;box-shadow:5px 5px 0 #151515}
+.btn,.btn-small,.download-item,.format-link{background:#e32636;color:#fff;border:2px solid #151515;box-shadow:4px 4px 0 #151515;border-radius:8px}
+.btn:hover,.format-link:hover{background:#151515;color:#fff;transform:translate(2px,2px);box-shadow:2px 2px 0 #151515}
+.lead,.card p,.about p,.support-box p,.muted,.hint{color:#5d5752}
+
