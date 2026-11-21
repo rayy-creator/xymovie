@@ -427,7 +427,10 @@ http.createServer(async (req, res) => {
   }
   if (req.method === "OPTIONS") return send(res, 200, { success: true });
   if (req.method === "GET" && ["/", "/health", "/api/health"].includes(new URL(req.url, "http://localhost").pathname)) return send(res, 200, { success: true, service: "XYDOWN Download Engine", version: "2026-11-21-pterodactyl-fix" });
-  const routePath = new URL(req.url, "http://localhost").pathname.replace(/\/+$/, "") || "/";
+  const rawPath = new URL(req.url, "http://localhost").pathname;
+  let routePath = rawPath;
+  try { routePath = decodeURIComponent(rawPath); } catch {}
+  routePath = routePath.replace(/[\\u200B-\\u200D\\u2060\\uFEFF]/g, "").replace(/\\/+$/, "") || "/";
   if (req.method !== "POST" || !["/download", "/api/download"].includes(routePath)) return send(res, 404, { success: false, message: "Endpoint tidak ditemukan: " + req.method + " " + routePath });
   try {
     let raw = "";
