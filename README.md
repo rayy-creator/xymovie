@@ -43,3 +43,5 @@ Tautan awal Saweria dan Sociabuzz merupakan alamat umum. Ganti dengan tautan don
 
 ## Penggunaan yang bertanggung jawab
 Unduh hanya konten yang kamu miliki atau yang memang diizinkan untuk disimpan. Hormati hak cipta, privasi kreator, dan ketentuan layanan TikTok. XYDOWN tidak menyediakan cara untuk melewati login, paywall, DRM, atau pembatasan akses.
+
+<!-- XYDOWN redeploy trigger: 2026-11-22 -->
