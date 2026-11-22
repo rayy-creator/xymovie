@@ -14,13 +14,21 @@ $("#download-form").addEventListener("submit",downloadMedia);$("#donate-top").on
 }
 function fileUrl(x){return x.url.startsWith("/")?API+x.url:API+"/file?url="+encodeURIComponent(x.url)+"&ext="+encodeURIComponent(x.ext||"mp4")}
 async function saveMedia(x,name){
- const r=await fetch(fileUrl(x),{cache:"no-store"});
+ const r=await fetch(fileUrl(x),{cache:"no-store",redirect:"follow"});
  const ct=(r.headers.get("content-type")||"").toLowerCase();
  if(!r.ok||ct.includes("json")||ct.includes("text/html")){
   let d={};try{d=await r.json()}catch(e){}
-  throw new Error(d.message||"Server tidak mengirim file media.");
+  throw new Error(d.message||"Server tidak mengirim file media. Tidak ada file yang diunduh.");
  }
- const b=await r.blob();if(!b.size)throw new Error("File kosong.");
+ const b=await r.blob();if(!b.size)throw new Error("File kosong. Tidak ada file yang diunduh.");
+ const bytes=new Uint8Array(await b.slice(0,32).arrayBuffer());
+ const starts=(...v)=>v.every((n,i)=>bytes[i]===n);
+ const ascii=(i,n)=>String.fromCharCode(...bytes.slice(i,i+n));
+ const isJpeg=starts(0xff,0xd8,0xff),isPng=starts(0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a);
+ const isWebp=ascii(0,4)==="RIFF"&&ascii(8,4)==="WEBP";
+ const isMp4=ascii(4,4)==="ftyp",isMp3=ascii(0,3)==="ID3"||(bytes[0]===0xff&&(bytes[1]&0xe0)===0xe0);
+ const valid=isJpeg||isPng||isWebp||isMp4||isMp3;
+ if(!valid){const preview=new TextDecoder().decode(bytes).trim().slice(0,80);throw new Error("Respons bukan file video/foto/audio yang valid"+(preview.startsWith("{")?": server mengirim JSON":"")+". Tidak ada file yang diunduh.");}
  const u=URL.createObjectURL(b),a=document.createElement("a");
  a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(u),60000);
