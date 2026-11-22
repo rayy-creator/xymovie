@@ -7,6 +7,7 @@ const crypto = require("node:crypto");
 const readyFiles = new Map();
 const adminSessions = new Map();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "rayyimut098@gmail.com").trim().toLowerCase();
 const SETTINGS_FILE = path.join(__dirname, "xydown-settings.json");
 const DEFAULT_SETTINGS = {siteName:"XYDOWN",tagline:"TikTok Downloader",headline:"Simpan video TikTok.<br><span>Lebih praktis.</span>",description:"Tempel tautan TikTok publik untuk melihat media yang tersedia. Pilih format yang kamu butuhkan, lalu unduh langsung dari halaman ini.",about:"XYDOWN adalah alat sederhana untuk membantu menyimpan video dan foto dari tautan TikTok publik. Tidak perlu memasukkan akun TikTok, kata sandi, atau cookie. Cukup tempel tautan, proses, lalu pilih media yang ingin disimpan.",saweria:"https://saweria.co/",sociabuzz:"https://sociabuzz.com/"};
 
@@ -446,9 +447,13 @@ http.createServer(async (req, res) => {
       for await (const chunk of req) { raw += chunk; if (raw.length > MAX_BODY) throw new Error("Permintaan terlalu besar."); }
       const body = JSON.parse(raw || "{}");
       if (!ADMIN_PASSWORD) return send(res, 503, {success:false, message:"ADMIN_PASSWORD belum diatur pada environment server."});
+      const suppliedEmail = Buffer.from(String(body.email || "").trim().toLowerCase());
+      const expectedEmail = Buffer.from(ADMIN_EMAIL);
       const supplied = Buffer.from(String(body.password || ""));
       const expected = Buffer.from(ADMIN_PASSWORD);
-      if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return send(res, 401, {success:false, message:"Kata sandi admin salah."});
+      const emailOk = suppliedEmail.length === expectedEmail.length && crypto.timingSafeEqual(suppliedEmail, expectedEmail);
+      const passwordOk = supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+      if (!emailOk || !passwordOk) return send(res, 401, {success:false, message:"Email atau kata sandi admin salah."});
       const token = crypto.randomBytes(32).toString("hex");
       adminSessions.set(token, Date.now() + 8 * 60 * 60 * 1000);
       return send(res, 200, {success:true, token});
