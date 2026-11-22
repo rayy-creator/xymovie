@@ -1,80 +1,86 @@
-const { Readable } = require("node:stream");
+const ALLOWED_HOST = /^(?:[a-z0-9-]+\\.)*(?:tiktokcdn(?:-[a-z0-9-]+)?\\.com|tiktokv(?:-[a-z0-9-]+)?\\.com|tiktok\\.com|byteoversea\\.com|ibytedtos\\.com|muscdn\\.com|tikwm\\.com|tikwm\\.net)$/i;
+const one = value => Array.isArray(value) ? value[0] : value;
 
-const ALLOWED_HOST = /^(?:[a-z0-9-]+\.)*(?:tiktokcdn(?:-[a-z0-9-]+)?\.com|tiktokv\.com|tiktok\.com|byteoversea\.com|ibytedtos\.com|muscdn\.com|tikwm\.com|tikwm\.net)$/i;
-const getOne = value => Array.isArray(value) ? value[0] : value;
+function fail(res, status, message) {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(status).json({ success: false, message });
+}
+
+function detectMedia(buffer) {
+  if (!buffer || buffer.length < 12) return null;
+  const head = buffer.subarray(0, 32);
+  const text = head.toString("utf8").trimStart().toLowerCase();
+  if (text.startsWith("{") || text.startsWith("[") || text.startsWith("<!doctype") || text.startsWith("<html")) return null;
+  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return "image/jpeg";
+  if (head.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") return "image/png";
+  if (head.subarray(0, 4).toString() === "RIFF" && head.subarray(8, 12).toString() === "WEBP") return "image/webp";
+  if (head.subarray(0, 3).toString() === "ID3" || (head[0] === 0xff && (head[1] & 0xe0) === 0xe0)) return "audio/mpeg";
+  if (head.subarray(4, 8).toString() === "ftyp") return "video/mp4";
+  if (head.subarray(0, 4).toString() === "OggS") return "audio/ogg";
+  return null;
+}
 
 module.exports = async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-    return res.status(405).json({ success:false, message:"Method tidak diizinkan." });
+    return fail(res, 405, "Method tidak diizinkan.");
   }
 
   try {
-    const rawUrl = getOne(req.query.url);
-    if (!rawUrl) return res.status(400).json({ success:false, message:"URL file tidak ditemukan." });
+    const raw = one(req.query.url);
+    if (!raw) return fail(res, 400, "URL media tidak ditemukan.");
 
     let target;
-    try { target = new URL(String(rawUrl)); }
-    catch { return res.status(400).json({ success:false, message:"URL file tidak valid." }); }
+    try { target = new URL(String(raw)); }
+    catch { return fail(res, 400, "URL media tidak valid."); }
 
     if (target.protocol !== "https:" || !ALLOWED_HOST.test(target.hostname)) {
-      return res.status(403).json({ success:false, message:"Domain file tidak termasuk CDN yang didukung: " + target.hostname });
+      return fail(res, 403, "Host CDN tidak diizinkan: " + target.hostname);
     }
 
     const headers = {
-      "user-agent":"Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36",
-      "referer":"https://www.tiktok.com/",
-      "accept":"*/*"
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+      "referer": target.hostname.endsWith("tikwm.com") ? "https://www.tikwm.com/" : "https://www.tiktok.com/",
+      "accept": "*/*"
     };
     if (req.headers.range) headers.range = req.headers.range;
 
     const upstream = await fetch(target.toString(), {
-      method:"GET",
-      headers,
-      redirect:"follow",
-      signal:AbortSignal.timeout(60000)
+      headers, redirect: "follow", signal: AbortSignal.timeout(60000)
     });
-
-    if (!upstream.ok || !upstream.body) {
-      const detail = "CDN mengembalikan HTTP " + upstream.status + ". Link media mungkin kedaluwarsa.";
-      return res.status(502).json({ success:false, message:detail });
-    }
+    if (!upstream.ok) return fail(res, 502, "CDN menolak file (HTTP " + upstream.status + "). Proses ulang tautan TikTok untuk mendapatkan URL baru.");
+    if (!upstream.body) return fail(res, 502, "CDN tidak mengirim isi file.");
 
     const finalUrl = new URL(upstream.url);
     if (finalUrl.protocol !== "https:" || !ALLOWED_HOST.test(finalUrl.hostname)) {
       await upstream.body.cancel().catch(() => {});
-      return res.status(403).json({ success:false, message:"Pengalihan CDN menuju domain yang tidak diizinkan." });
+      return fail(res, 403, "Redirect CDN menuju host yang tidak diizinkan.");
     }
 
-    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
-    if (/application\/json|text\/html/i.test(contentType)) {
-      const detail = (await upstream.text()).slice(0,300);
-      return res.status(502).json({ success:false, message:"CDN tidak mengirim file media. " + detail });
-    }
+    const bytes = Buffer.from(await upstream.arrayBuffer());
+    const detected = detectMedia(bytes);
+    if (!detected) return fail(res, 502, "Respons CDN bukan file media yang valid. Tidak ada file yang diunduh. Silakan proses ulang tautan.");
 
-    const requestedExt = String(getOne(req.query.ext) || "mp4").toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,5);
-    const ext = ["mp4","mp3","jpg","jpeg","png","webp","m4a"].includes(requestedExt) ? requestedExt : "mp4";
-    const filename = "xydown-" + (ext === "mp4" ? "video" : ext === "mp3" || ext === "m4a" ? "audio" : "slide") + "." + ext;
+    const requested = String(one(req.query.ext) || "").toLowerCase();
+    const extension = detected === "video/mp4" ? "mp4"
+      : detected === "audio/mpeg" ? (requested === "mp3" ? "mp3" : "mp3")
+      : detected === "image/png" ? "png"
+      : detected === "image/webp" ? "webp"
+      : detected === "audio/ogg" ? "ogg" : "jpg";
+    const kind = detected.startsWith("video/") ? "video" : detected.startsWith("audio/") ? "audio" : "photo";
+    const filename = "xydown-" + kind + "." + extension;
 
-    res.statusCode = upstream.status;
-    res.setHeader("Content-Type", contentType);
+    res.statusCode = 200;
+    res.setHeader("Content-Type", detected);
+    res.setHeader("Content-Length", String(bytes.length));
     res.setHeader("Content-Disposition", 'attachment; filename="' + filename + '"');
-    res.setHeader("Cache-Control", "no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    for (const name of ["content-length","content-range","accept-ranges"]) {
-      const value = upstream.headers.get(name);
-      if (value) res.setHeader(name, value);
-    }
-
-    Readable.fromWeb(upstream.body).pipe(res);
+    res.end(bytes);
   } catch (error) {
-    if (!res.headersSent) {
-      const status = error.name === "TimeoutError" ? 504 : 502;
-      return res.status(status).json({
-        success:false,
-        message:error.name === "TimeoutError" ? "CDN terlalu lama merespons. Coba lagi." : "Gagal mengambil file dari CDN: " + String(error.message || error).slice(0,180)
-      });
-    }
+    if (!res.headersSent) return fail(res, error.name === "TimeoutError" ? 504 : 502,
+      error.name === "TimeoutError" ? "CDN terlalu lama merespons. Coba proses ulang." : "Gagal mengambil file media: " + String(error.message || error).slice(0, 160));
     res.destroy(error);
   }
 };
