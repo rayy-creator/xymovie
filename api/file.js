@@ -1,13 +1,11 @@
 const { Readable } = require("node:stream");
-const ALLOWED = /^(?:[a-z0-9-]+\\.)*(?:tiktokcdn(?:-[a-z0-9-]+)?\\.com|tiktokv\\.com|tiktok\\.com|byteoversea\\.com|ibytedtos\\.com|muscdn\\.com)$/i;
+const ALLOWED = /^(?:[a-z0-9-]+\.)*(?:tiktokcdn(?:-[a-z0-9-]+)?\.com|tiktokv\.com|tiktok\.com|byteoversea\.com|ibytedtos\.com|muscdn\.com)$/i;
 module.exports = async (req,res) => {
   if (req.method !== "GET") return res.status(405).end("Method not allowed");
   try {
     const raw = req.query.url;
     const target = new URL(Array.isArray(raw) ? raw[0] : String(raw || ""));
-    if (target.protocol !== "https:" || !ALLOWED.test(target.hostname)) {
-      return res.status(403).json({success:false,message:"Alamat media tidak diizinkan."});
-    }
+    if (target.protocol !== "https:" || !ALLOWED.test(target.hostname)) return res.status(403).json({success:false,message:"Alamat media tidak diizinkan."});
     const headers = {"user-agent":"Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/126.0.0.0 Mobile Safari/537.36","referer":"https://www.tiktok.com/"};
     if (req.headers.range) headers.range = req.headers.range;
     const upstream = await fetch(target,{headers,redirect:"follow",signal:AbortSignal.timeout(60000)});
