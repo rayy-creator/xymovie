@@ -13,6 +13,18 @@ app.innerHTML='<div class="site-shell"><header class="topbar"><a class="brand" h
 $("#download-form").addEventListener("submit",downloadMedia);$("#donate-top").onclick=donate;$("#donate-main").onclick=donate;$(".brand").onclick=hiddenTap;
 }
 function fileUrl(x){return x.url.startsWith("/")?API+x.url:API+"/file?url="+encodeURIComponent(x.url)+"&ext="+encodeURIComponent(x.ext||"mp4")}
+async function saveMedia(x,name){
+ const r=await fetch(fileUrl(x),{cache:"no-store"});
+ const ct=(r.headers.get("content-type")||"").toLowerCase();
+ if(!r.ok||ct.includes("json")||ct.includes("text/html")){
+  let d={};try{d=await r.json()}catch(e){}
+  throw new Error(d.message||"Server tidak mengirim file media.");
+ }
+ const b=await r.blob();if(!b.size)throw new Error("File kosong.");
+ const u=URL.createObjectURL(b),a=document.createElement("a");
+ a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(u),60000);
+}
 async function downloadMedia(e){
 e.preventDefault();if(state.busy)return;const url=$("#url").value.trim(),feedback=$("#feedback"),result=$("#result"),btn=$("#go");feedback.innerHTML="";result.classList.remove("show");result.innerHTML="";
 if(!validTikTok(url)){feedback.innerHTML='<p class="error">Tautan tidak valid. Masukkan tautan TikTok atau TikTok Lite.</p>';return}
