@@ -12,8 +12,8 @@ module.exports = async (req, res) => {
     const absolute = value => { try { return new URL(value, "https://www.tikwm.com").toString(); } catch { return ""; } };
     const tryTikWM = async () => {
       const form = new URLSearchParams({url,hd:"1",web:"1"});
-      const response = await fetch("https://www.tikwm.com/api/", {
-        method:"POST", headers:{"content-type":"application/x-www-form-urlencoded; charset=UTF-8","accept":"application/json","user-agent":"Mozilla/5.0 XYDOWN/1.0"}, body:form,
+      const response = await fetch("https://www.tikwm.com/api/?"+form.toString(), {
+        method:"GET", headers:{"accept":"application/json","user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36","referer":"https://www.tikwm.com/"},
         signal:AbortSignal.timeout(30000)
       });
       const payload = await response.json();
