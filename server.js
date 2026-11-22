@@ -5,10 +5,14 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const readyFiles = new Map();
+const adminSessions = new Map();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+const SETTINGS_FILE = path.join(__dirname, "xydown-settings.json");
+const DEFAULT_SETTINGS = {siteName:"XYDOWN",tagline:"TikTok Downloader",headline:"Simpan video TikTok.<br><span>Lebih praktis.</span>",description:"Tempel tautan TikTok publik untuk melihat media yang tersedia. Pilih format yang kamu butuhkan, lalu unduh langsung dari halaman ini.",about:"XYDOWN adalah alat sederhana untuk membantu menyimpan video dan foto dari tautan TikTok publik. Tidak perlu memasukkan akun TikTok, kata sandi, atau cookie. Cukup tempel tautan, proses, lalu pilih media yang ingin disimpan.",saweria:"https://saweria.co/",sociabuzz:"https://sociabuzz.com/"};
 
 const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 3000);
 const MAX_BODY = 8192;
-const ALLOWED = ["instagram.com", "tiktok.com", "youtube.com", "youtu.be"];
+const ALLOWED = ["tiktok.com"];
 
 function send(res, status, data) {
   const body = JSON.stringify(data);
@@ -431,6 +435,55 @@ http.createServer(async (req, res) => {
   try { routePath = decodeURIComponent(rawPath); } catch {}
   routePath = routePath.replace(/[\\u200B-\\u200D\\u2060\\uFEFF]/g, "").replace(/\\/+$/, "") || "/";
   if (req.method === "GET" && ["/", "/health", "/api/health"].includes(routePath)) return send(res, 200, { success: true, service: "XYDOWN Download Engine", version: "2026-11-21-pterodactyl-fix" });
+  if (req.method === "GET" && routePath === "/site-settings") {
+    let settings = DEFAULT_SETTINGS;
+    try { if (fs.existsSync(SETTINGS_FILE)) settings = {...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"))}; } catch {}
+    return send(res, 200, {success:true, settings});
+  }
+  if (req.method === "POST" && routePath === "/admin/login") {
+    let raw = "";
+    try {
+      for await (const chunk of req) { raw += chunk; if (raw.length > MAX_BODY) throw new Error("Permintaan terlalu besar."); }
+      const body = JSON.parse(raw || "{}");
+      if (!ADMIN_PASSWORD) return send(res, 503, {success:false, message:"ADMIN_PASSWORD belum diatur pada environment server."});
+      const supplied = Buffer.from(String(body.password || ""));
+      const expected = Buffer.from(ADMIN_PASSWORD);
+      if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return send(res, 401, {success:false, message:"Kata sandi admin salah."});
+      const token = crypto.randomBytes(32).toString("hex");
+      adminSessions.set(token, Date.now() + 8 * 60 * 60 * 1000);
+      return send(res, 200, {success:true, token});
+    } catch (error) { return send(res, 400, {success:false, message:error.message || "Permintaan login tidak valid."}); }
+  }
+  if (["GET","PUT"].includes(req.method) && routePath === "/admin/settings") {
+    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+    const expires = adminSessions.get(token);
+    if (!token || !expires || expires < Date.now()) {
+      adminSessions.delete(token);
+      return send(res, 401, {success:false, message:"Sesi admin berakhir. Silakan login kembali."});
+    }
+    if (req.method === "GET") {
+      let settings = DEFAULT_SETTINGS;
+      try { if (fs.existsSync(SETTINGS_FILE)) settings = {...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"))}; } catch {}
+      return send(res, 200, {success:true, settings});
+    }
+    try {
+      let raw = "";
+      for await (const chunk of req) { raw += chunk; if (raw.length > 12000) throw new Error("Data pengaturan terlalu besar."); }
+      const body = JSON.parse(raw || "{}");
+      const incoming = body.settings || {};
+      const allowed = ["siteName","tagline","headline","description","about","saweria","sociabuzz"];
+      const current = {...DEFAULT_SETTINGS};
+      try { if (fs.existsSync(SETTINGS_FILE)) Object.assign(current, JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"))); } catch {}
+      for (const key of allowed) if (typeof incoming[key] === "string") current[key] = incoming[key].slice(0, key === "about" ? 1200 : key === "description" ? 600 : 300);
+      for (const key of ["saweria","sociabuzz"]) {
+        try { const u = new URL(current[key]); if (u.protocol !== "https:") throw new Error(); }
+        catch { return send(res, 400, {success:false, message:"Tautan donasi harus berupa URL HTTPS yang valid."}); }
+      }
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(current, null, 2), "utf8");
+      return send(res, 200, {success:true, settings:current});
+    } catch (error) { return send(res, 400, {success:false, message:error.message || "Gagal menyimpan pengaturan."}); }
+  }
+
   if (req.method !== "POST" || !["/download", "/api/download"].includes(routePath)) return send(res, 404, { success: false, message: "Endpoint tidak ditemukan: " + req.method + " " + routePath });
   try {
     let raw = "";
@@ -440,7 +493,7 @@ http.createServer(async (req, res) => {
     }
     const body = JSON.parse(raw || "{}");
     if (typeof body.url !== "string" || !validUrl(body.url)) {
-      return send(res, 400, { success: false, message: "Masukkan link Instagram, TikTok, atau YouTube yang valid." });
+      return send(res, 400, { success: false, message: "XYDOWN hanya menerima tautan TikTok yang valid." });
     }
     const targetUrl = body.url.trim();
     const host = new URL(targetUrl).hostname.toLowerCase();
