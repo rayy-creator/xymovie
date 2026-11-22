@@ -1,30 +1,45 @@
 # XYDOWN
 
-Minimalist social media media downloader for Instagram, TikTok and YouTube.
+Website downloader khusus TikTok dengan antarmuka responsif, halaman donasi, dan panel admin tersembunyi.
 
-## Architecture
-- Static frontend: `index.html`, `assets/style.css`, `assets/app.js`.
-- Download engine: Node.js + yt-dlp + FFmpeg running on the owner's Android phone through Termux.
-- Public connection: Cloudflare Tunnel.
-- No Cobalt API, no Supabase, and no social-media account login.
+## Fitur
+- Hanya menerima tautan TikTok publik.
+- Menampilkan hasil media dan pilihan format sebelum pengguna mengunduh.
+- Logo XY pada header dan footer.
+- Tombol donasi Saweria dan Sociabuzz.
+- Panel admin tersembunyi untuk mengubah teks website dan tautan donasi.
+- Tidak meminta username, password, atau cookie akun TikTok.
+- Tidak mendukung konten privat, konten yang memerlukan autentikasi, atau konten yang dilindungi DRM.
 
-## Termux server
-1. Install Node.js, Python, yt-dlp, FFmpeg, Express and CORS in Termux.
-2. Run `node server.js` on port 3000.
-3. In another Termux session, run `cloudflared tunnel --url http://localhost:3000`.
-4. Update the API base URL in `assets/app.js` to the current `https://<random>.trycloudflare.com` address, then redeploy the website.
+## Struktur
+- `index.html` — halaman utama.
+- `assets/app.js` — antarmuka, proses download, donasi, dan panel admin.
+- `assets/style.css` — tampilan responsif.
+- `server.js` — API Node.js untuk TikTok dan pengaturan admin.
+- `xy-logo.svg` — logo XY.
 
-The current frontend is configured for the owner's current Quick Tunnel URL. Cloudflare Quick Tunnel hostnames are temporary and change when the tunnel is restarted; update the URL in `assets/app.js` after generating a new one. Quick Tunnels are intended for testing/development and have no uptime guarantee.
+## Menjalankan backend
+Gunakan Node.js 20 atau lebih baru. Pasang `yt-dlp` dan FFmpeg pada server jika diperlukan oleh proses media. Jalankan:
 
-## Features and limitations
-- Public Instagram, TikTok and YouTube links where yt-dlp supports access.
-- No social-media username, password, cookies or account login are requested.
-- Private, login-gated, age-restricted or otherwise inaccessible content is not supported.
-- Media URLs returned by platforms may expire; request the link again if a download URL stops working.
-- The phone, Node.js server and Cloudflare Tunnel must remain online for the downloader API to work.
+```bash
+npm start
+```
 
-## Donations
-Replace the generic Saweria and Sociabuzz links in `assets/app.js` with the project's actual donation URLs.
+## Mengaktifkan panel admin tersembunyi
+Atur environment variable berikut pada panel hosting/Pterodactyl:
 
-## Responsible use
-Only download content you own or have permission to save. Respect platform terms, copyright and creators' rights.
+```env
+ADMIN_PASSWORD=buat-kata-sandi-admin-yang-kuat
+```
+
+Restart backend setelah mengatur variabel tersebut.
+
+Panel admin tidak ditampilkan di navigasi publik. Buka dengan menekan logo XY lima kali dengan cepat, atau gunakan shortcut Ctrl + Shift + X. Login memakai nilai `ADMIN_PASSWORD`.
+
+Panel admin dapat mengubah judul, deskripsi, teks tentang, serta tautan Saweria dan Sociabuzz. Pengaturan disimpan ke file `xydown-settings.json` di folder backend, jadi folder aplikasi harus dapat ditulisi oleh proses Node.js.
+
+## Donasi
+Tautan awal Saweria dan Sociabuzz merupakan alamat umum. Ganti dengan tautan donasi milik project melalui panel admin sebelum website dipublikasikan.
+
+## Penggunaan yang bertanggung jawab
+Unduh hanya konten yang kamu miliki atau yang memang diizinkan untuk disimpan. Hormati hak cipta, privasi kreator, dan ketentuan layanan TikTok. XYDOWN tidak menyediakan cara untuk melewati login, paywall, DRM, atau pembatasan akses.
