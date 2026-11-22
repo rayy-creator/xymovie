@@ -15,7 +15,8 @@ module.exports = async (req,res) => {
     for (const h of ["content-type","content-length","content-range","accept-ranges"]) {
       const value=upstream.headers.get(h); if(value) res.setHeader(h,value);
     }
-    res.setHeader("content-disposition",'attachment; filename="xydown-tiktok.mp4"');
+    const ext=String(req.query.ext||"mp4").replace(/[^a-z0-9]/gi,"").slice(0,5)||"mp4";
+    res.setHeader("content-disposition",'attachment; filename="xydown-tiktok.'+ext+'"');
     res.setHeader("cache-control","no-store");
     res.setHeader("x-content-type-options","nosniff");
     Readable.fromWeb(upstream.body).pipe(res);
