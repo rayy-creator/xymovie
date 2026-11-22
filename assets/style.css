@@ -30,3 +30,6 @@
 .photo-choice input{accent-color:var(--accent,#a78bfa)}
 .photo-download{margin:8px 0 18px;width:100%}
 .photo-download:disabled{opacity:.45;cursor:not-allowed}
+
+button.format-item{width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer}
+button.format-item:disabled{opacity:.6;cursor:wait}
