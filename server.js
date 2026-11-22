@@ -45,7 +45,7 @@ async function clutchGet(path, url, extra = "") {
   try {
     json = JSON.parse(raw);
   } catch {
-    const preview = raw.replace(/\\s+/g, " ").slice(0, 180);
+    const preview = raw.replace(/\s+/g, " ").slice(0, 180);
     throw new Error(`Clutch /download/${path} membalas non-JSON (HTTP ${response.status}, ${response.headers.get("content-type") || "unknown"}): ${preview}`);
   }
   if (!response.ok) throw new Error(json.error || `Clutch API HTTP ${response.status}`);
@@ -329,7 +329,7 @@ http.createServer(async (req, res) => {
       const range = req.headers.range;
       let start = 0, end = stat.size - 1, status = 200;
       if (range) {
-        const match = /^bytes=(\\d*)-(\\d*)$/.exec(range);
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range);
         if (match) {
           if (match[1]) start = Number(match[1]);
           if (match[2]) end = Number(match[2]);
@@ -433,7 +433,7 @@ http.createServer(async (req, res) => {
   const rawPath = new URL(req.url, "http://localhost").pathname;
   let routePath = rawPath;
   try { routePath = decodeURIComponent(rawPath); } catch {}
-  routePath = routePath.replace(/[\\u200B-\\u200D\\u2060\\uFEFF]/g, "").replace(/\\/+$/, "") || "/";
+  routePath = routePath.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").replace(/\/+$/, "") || "/";
   if (req.method === "GET" && ["/", "/health", "/api/health"].includes(routePath)) return send(res, 200, { success: true, service: "XYDOWN Download Engine", version: "2026-11-21-pterodactyl-fix" });
   if (req.method === "GET" && routePath === "/site-settings") {
     let settings = DEFAULT_SETTINGS;
